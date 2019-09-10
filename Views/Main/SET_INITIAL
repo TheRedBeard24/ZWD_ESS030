@@ -1,0 +1,104 @@
+method SET_INITIAL .
+
+    DATA lo_el_context TYPE REF TO if_wd_context_element.
+    DATA ls_context TYPE wd_this->element_context.
+    DATA lv_dateafter TYPE wd_this->element_context-dateafter.
+
+*   get element via lead selection
+    lo_el_context = wd_context->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_context IS INITIAL.
+    ENDIF.
+
+*   @TODO fill attribute
+   lv_dateafter = sy-datum.
+
+*   set single attribute
+    lo_el_context->set_attribute(
+      name =  `DATEAFTER`
+      value = lv_dateafter ).
+    lo_el_context->set_attribute(
+      name =  `DATEINPUT`
+      value = lv_dateafter ).
+
+
+DATA : ld_usrid TYPE P0105-USRID,
+       ld_pernr TYPE P0105-PERNR,
+       lv_pernr TYPE P0105-PERNR.
+
+      DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+      DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+      DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+*     navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+      lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+*     @TODO handle non existant child
+*     IF lo_nd_leave_req IS INITIAL.
+*     ENDIF.
+
+*     get element via lead selection
+      lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+*     @TODO handle not set lead selection
+      IF lo_el_leave_req IS INITIAL.
+      ENDIF.
+
+*     @TODO fill static attributes
+*     ls_leave_req = xxx->get_yyy( ).
+      ls_leave_req-begda = sy-datum.
+      ls_leave_req-endda = sy-datum.
+      ls_leave_req-awart = 'C000'.
+
+      DATA : lx_t554s TYPE t554s,
+             lx_t554t TYPE t554t.
+*     SELECT SINGLE * FROM  t554s INTO  lx_t554s
+*        WHERE
+*        subty = ls_leave_req-awart AND
+*              endda = '99991231'.
+      SELECT SINGLE * FROM  t554t INTO  lx_t554t
+        WHERE
+        awart = ls_leave_req-awart ."AND
+*              endda = '99991231'.
+
+
+     ls_leave_req-textawart = ls_leave_req-atext = lx_t554t-atext ."= 'Cuti Tahunan Pegawai'.
+*      ls_leave_req-textawart = 'Cuti Tahunan Pegawai'.
+*     set all declared attributes
+      lo_el_leave_req->set_static_attributes(
+         static_attributes = ls_leave_req ).
+
+
+ld_usrid = sy-uname.
+    CALL FUNCTION 'RP_GET_PERNR_FROM_USERID'
+      EXPORTING
+        begda     = sy-datum
+        endda     = sy-datum
+        usrid     = ld_usrid
+        usrty     = '0001'
+      IMPORTING
+        usr_pernr = ld_pernr
+      EXCEPTIONS
+        retcd     = 1
+        OTHERS    = 2.
+ lv_pernr = ld_pernr.
+
+* IF ld_pernr IS INITIAL AND sy-uname eq 'KHCM02'.
+*   lv_pernr = ld_pernr = '00000035'.
+* ENDIF.
+
+* set single attribute
+  lo_el_leave_req->set_attribute(
+    name =  `PERNR`
+    value = lv_pernr ).
+
+
+ me->trans_date(
+   CHANGING
+     pa_startdate = sy-datum
+     pa_dateinput = sy-datum
+ ).
+
+endmethod.
