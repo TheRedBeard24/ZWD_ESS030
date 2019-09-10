@@ -1,0 +1,10 @@
+PERNR	Importing	PERNR_D
+RETURN	Returning	BAPIRET1
+
+METHOD WHO_IS_LOCKED .
+  CALL FUNCTION 'ZFM_WHO_IS_LOCKED'
+    EXPORTING
+      pernr  = pernr
+    IMPORTING
+      return = return.
+ENDMETHOD.
