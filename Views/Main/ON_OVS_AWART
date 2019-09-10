@@ -1,0 +1,208 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+OVS_CALLBACK_OBJECT	IF_WD_OVS
+
+METHOD on_ovs_awart .
+*  TABLES : t554t_web.
+  DATA :
+         lt_t554t_w TYPE TABLE OF T554S_WEB,
+         lt_t554t TYPE TABLE OF t554t,
+         lt_t554s TYPE TABLE OF t554s,
+
+         lx_t554s TYPE t554s,
+         lx_t554t TYPE t554t.
+* declare data structures for the fields to be displayed and
+* for the table columns of the selection list, if necessary
+  TYPES:
+    BEGIN OF lty_stru_input,
+*   add fields for the display of your search input here
+      awart   TYPE string,
+      desc TYPE string,
+*       job_id   type string,
+*       job_desc type string,
+    END OF lty_stru_input.
+  TYPES:
+    BEGIN OF lty_stru_list,
+*   add fields for the selection list here
+      short TYPE short_d,
+      stext TYPE stext,
+    END OF lty_stru_list.
+
+  FIELD-SYMBOLS: <ls_query_params> TYPE lty_stru_input,
+                    <ls_selection>    TYPE lty_stru_list.
+
+  DATA : lv_short TYPE string,
+         lv_stext TYPE string.
+
+  DATA:
+           ls_search_input  TYPE lty_stru_input,
+           lt_select_list   TYPE STANDARD TABLE OF lty_stru_list,
+           lx_select_list   TYPE lty_stru_list,
+           ls_text          TYPE wdr_name_value,
+           lt_label_texts   TYPE wdr_name_value_list,
+           lt_column_texts  TYPE wdr_name_value_list,
+           lv_window_title  TYPE string,
+           lv_group_header  TYPE string,
+           lv_table_header  TYPE string.
+
+
+  CASE ovs_callback_object->phase_indicator.
+    WHEN if_wd_ovs=>co_phase_0.
+      ls_text-name = `AWART`.  "must match a field name of search
+      ls_text-value = `Absence Type`.
+      INSERT ls_text INTO TABLE lt_label_texts.
+      ls_text-name = `DESC`.  "must match a field name of search
+      ls_text-value = `Description`.
+      INSERT ls_text INTO TABLE lt_label_texts.
+      ls_text-name = `SHORT`.
+      ls_text-value = `Absence Type`.
+      INSERT ls_text INTO TABLE lt_column_texts.
+      ls_text-name = `STEXT`.
+      ls_text-value = `Description`.
+      INSERT ls_text INTO TABLE lt_column_texts.
+      ovs_callback_object->set_configuration(
+                label_texts  = lt_label_texts
+                column_texts = lt_column_texts
+                group_header = 'Absence Type'
+                col_count    = 2
+                row_count    = 10 ).
+    WHEN if_wd_ovs=>co_phase_1.  "set search structure and defaults
+*   In this phase you can set the structure and default values
+*   of the search structure. If this phase is omitted, the search
+*   fields will not be displayed, but the selection table is
+*   displayed directly.
+*   Read values of the original context (not necessary, but you
+*   may set these as the defaults). A reference to the context
+*   element is available in the callback object.
+      ovs_callback_object->context_element->get_static_attributes(
+          IMPORTING static_attributes = ls_search_input ).
+**     pass the values to the OVS component
+      ovs_callback_object->set_input_structure(
+          input = ls_search_input ).
+    WHEN if_wd_ovs=>co_phase_2.
+*   If phase 1 is implemented, use the field input for the
+*   selection of the table.
+*   If phase 1 is omitted, use values from your own context.
+      IF ovs_callback_object->query_parameters IS NOT BOUND.
+******** TODO exception handling
+      ENDIF.
+      ASSIGN ovs_callback_object->query_parameters->*
+                              TO <ls_query_params>.
+      IF NOT <ls_query_params> IS ASSIGNED.
+******** TODO exception handling
+      ENDIF.
+
+      lv_short = <ls_query_params>-awart.
+      lv_stext = <ls_query_params>-desc.
+      REPLACE ALL OCCURRENCES OF '*' IN lv_short WITH '%' .
+      REPLACE ALL OCCURRENCES OF '*' IN lv_stext WITH ' ' .
+
+      TRANSLATE lv_short TO UPPER CASE.
+*      TRANSLATE lv_stext TO UPPER CASE.
+
+      SELECT * FROM T554S_WEB INTO CORRESPONDING FIELDS OF TABLE lt_t554t_w
+        WHERE "sprsl EQ 'En' AND
+        moabw EQ '90' .
+
+      IF lv_short eq space AND lv_stext eq space.
+      SELECT * FROM t554t INTO CORRESPONDING FIELDS OF TABLE lt_t554t
+        FOR ALL ENTRIES IN lt_t554t_w
+        WHERE sprsl EQ 'En' AND moabw EQ '90' AND awart = lt_t554t_w-subty.
+
+
+      ELSEIF lv_short IS NOT INITIAL AND lv_stext IS INITIAL.
+      SELECT * FROM t554t INTO CORRESPONDING FIELDS OF TABLE lt_t554t
+        FOR ALL ENTRIES IN lt_t554t_w
+        WHERE sprsl EQ 'En' AND moabw EQ '90' AND ( awart LIKE lv_short or awart = lt_t554t_w-subty ) .
+
+      ELSEIF lv_short IS NOT INITIAL AND lv_stext IS NOT INITIAL.
+        SELECT * FROM t554t INTO CORRESPONDING FIELDS OF TABLE lt_t554t
+        FOR ALL ENTRIES IN lt_t554t_w
+        WHERE sprsl EQ 'En' AND moabw EQ '90' AND
+           ( awart LIKE lv_short or awart = lt_t554t_w-subty )
+          AND atext LIKE lv_stext.
+
+      ELSEIF lv_short IS INITIAL AND lv_stext IS NOT INITIAL.
+        SELECT * FROM t554t INTO CORRESPONDING FIELDS OF TABLE lt_t554t
+          FOR ALL ENTRIES IN lt_t554t_w
+        WHERE sprsl EQ 'En' AND moabw EQ '90'
+          and awart = lt_t554t_w-subty
+          ."AND   atext LIKE lv_stext.
+
+        LOOP AT lt_t554t INTO lx_t554t.
+            IF lx_t554t-atext cs lv_stext.
+
+            ELSE.
+              delete lt_t554t WHERE awart = lx_t554t-awart.
+            ENDIF.
+        ENDLOOP.
+
+      ENDIF.
+
+      SELECT * FROM t554s INTO CORRESPONDING FIELDS OF TABLE lt_t554s
+        FOR ALL ENTRIES IN lt_t554t_w
+*        FOR ALL ENTRIES IN lt_t554t
+        WHERE
+        subty = lt_t554t_w-subty AND
+*        subty = lt_t554t-awart AND
+*              art01 = 'A' AND
+              endda = '99991231'.
+
+      LOOP AT lt_t554t INTO lx_t554t.
+        READ TABLE lt_t554s WITH KEY subty = lx_t554t-awart TRANSPORTING NO FIELDS.
+        IF sy-subrc eq 0.
+        lx_select_list-short = lx_t554t-awart.
+        lx_select_list-stext = lx_t554t-atext.
+        APPEND lx_select_list TO lt_select_list.
+        ENDIF.
+      ENDLOOP.
+
+      ovs_callback_object->set_output_table( output = lt_select_list ).
+    WHEN if_wd_ovs=>co_phase_3.
+*   apply result
+      IF ovs_callback_object->selection IS NOT BOUND.
+******** TODO exception handling
+      ENDIF.
+      ASSIGN ovs_callback_object->selection->* TO <ls_selection>.
+      IF <ls_selection> IS ASSIGNED.
+        ovs_callback_object->context_element->set_attribute(
+                               name  = `AWART`
+                               value = <ls_selection>-short ).
+*********
+*        BREAK-POINT.
+
+          DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+          DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+          DATA ls_leave_req TYPE wd_this->element_leave_req.
+          DATA lv_textawart TYPE wd_this->element_leave_req-textawart.
+
+*         navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+          lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+*         @TODO handle non existant child
+*         IF lo_nd_leave_req IS INITIAL.
+*         ENDIF.
+
+*         get element via lead selection
+          lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+*         @TODO handle not set lead selection
+          IF lo_el_leave_req IS INITIAL.
+          ENDIF.
+
+*         @TODO fill attribute
+         lv_textawart = <ls_selection>-stext.
+
+*         set single attribute
+          lo_el_leave_req->set_attribute(
+            name =  `TEXTAWART`
+            value = lv_textawart ).
+
+
+*********
+
+      ENDIF.
+    WHEN OTHERS.
+  ENDCASE.
+
+ENDMETHOD.
