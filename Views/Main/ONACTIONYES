@@ -1,0 +1,162 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+method ONACTIONYES .
+
+  DATA : lx_cont TYPE swr_cont.
+  DATA : lt_cont TYPE TABLE OF swr_cont.
+  DATA : objkey TYPE swr_struct-object_key.
+  DATA : lt_msglines TYPE STANDARD TABLE OF swr_messag,
+         lt_msgstruc TYPE STANDARD TABLE OF swr_mstruc,
+         wa_msglines TYPE swr_messag,
+         wa_msgstruc TYPE swr_mstruc.
+  DATA l_current_controller TYPE REF TO if_wd_controller.
+  DATA l_message_manager    TYPE REF TO if_wd_message_manager.
+  DATA :
+        lx_ztb   TYPE ztb_guidmap,
+        lx_z2001 TYPE ztb_P2001  ,
+        guid     TYPE guid_32.
+
+  l_current_controller ?= wd_this->wd_get_api( ).
+  l_message_manager = l_current_controller->get_message_manager( ).
+
+    DATA lo_nd_guid TYPE REF TO if_wd_context_node.
+
+    DATA lo_el_guid TYPE REF TO if_wd_context_element.
+    DATA ls_guid TYPE wd_this->element_guid.
+    DATA lv_ld_guid TYPE wd_this->element_guid-ld_guid.
+
+*   navigate from <CONTEXT> to <GUID> via lead selection
+    lo_nd_guid = wd_context->get_child_node( name = wd_this->wdctx_guid ).
+
+*   @TODO handle non existant child
+*   IF lo_nd_guid IS INITIAL.
+*   ENDIF.
+
+*   get element via lead selection
+    lo_el_guid = lo_nd_guid->get_element( ).
+*   @TODO handle not set lead selection
+    IF lo_el_guid IS INITIAL.
+    ENDIF.
+
+*   get single attribute
+    lo_el_guid->get_attribute(
+      EXPORTING
+        name =  `LD_GUID`
+      IMPORTING
+        value = lv_ld_guid ).
+
+    guid = lv_ld_guid.
+
+    SELECT SINGLE * FROM ztb_guidmap into lx_ztb    WHERE guid = guid.
+    SELECT SINGLE * FROM ztb_P2001   into lx_z2001  WHERE guid = guid.
+    if lx_ztb-status_item eq 'In Process'.
+    DELETE ztb_guidmap FROM lx_ztb."WHERE guid = lx_ztb-guid.
+    delete ztb_P2001   from   lx_z2001."WHERE guid = lx_leave_req-guid.
+     l_message_manager->report_t100_message(
+       EXPORTING
+         msgid = 'AQ'
+         msgno = '003'
+         msgty = 'S'
+         p1    = 'Data Has Been Deleted'
+         p2    = ''
+         p3    = ''
+         p4    = ''
+         view  = 'MAIN'
+         show_as_popup = 'X' ).
+
+    me->refresh_tab2( ).
+    RETURN.
+   ELSEIF lx_ztb-status_item eq 'Approved' or lx_ztb-status_item eq 'Approved1' or lx_ztb-status_item eq 'Approve1'.
+     DATA : WORKITEM_ID    TYPE SWR_STRUCT-WORKITEMID,
+       DECISION_NOTE  TYPE SWRSOBJID ,
+       MESSAGE_LINES  type table of SWR_MESSAG,
+       MESSAGE_STRUCT type table of SWR_MSTRUC.
+ DATA :  NEW_STATUS  type  SWR_WISTAT  ,
+              RETURN_CODE type  SY-SUBRC.
+ DATA: SWR_DECIKEY TYPE SWR_DECIKEY      ,
+       lt_sww TYPE TABLE OF sww_wi2obj,
+       lx_sww TYPE sww_wi2obj,
+       char TYPE char250.
+ char = 'Mark For Deletion'.
+ CALL FUNCTION 'ZHR_LEAVERQ_CHANGE_STATUS'
+   EXPORTING
+     guid          = lx_ztb-guid
+     status        = char
+*  IMPORTING
+*    SUBRC         =
+*    MESS          =
+           .
+
+** res_data = 'Thank You for Approving'.
+** char = 'Approved1'.
+* DECISION_NOTE = 'DELETE'.
+* SWR_DECIKEY = '0003'.
+*
+*  SELECT * FROM sww_wi2obj INTO CORRESPONDING FIELDS OF TABLE lt_sww WHERE instid = guid."objkey.
+*
+*  SORT lt_sww DESCENDING BY wi_id.
+*  READ TABLE lt_sww INTO lx_sww INDEX 1.
+*  WORKITEM_ID = lx_sww-wi_id + 1.
+*
+*     CALL FUNCTION 'SAP_WAPI_DECISION_COMPLETE'
+*        EXPORTING
+*          workitem_id         = WORKITEM_ID
+*         LANGUAGE             = SY-LANGU
+*         USER                 = SY-UNAME
+*         decision_key         = SWR_DECIKEY
+*         DO_COMMIT            = 'X'
+*         DECISION_NOTE        = DECISION_NOTE
+**       IMPORTING
+**         RETURN_CODE          =
+**         NEW_STATUS           =
+*       TABLES
+*         MESSAGE_LINES        = MESSAGE_LINES
+*         MESSAGE_STRUCT       = MESSAGE_STRUCT
+*                .
+*      commit WORK.
+*      WAIT UP TO 2 SECONDS.
+
+   objkey = guid.
+   CALL FUNCTION 'SAP_WAPI_CREATE_EVENT' " IN BACKGROUND TASK AS SEPARATE UNIT
+    EXPORTING
+      object_type     = 'ZBORLVRQST'
+*     object_type     = 'ZPERINFO'
+      object_key      = objkey
+      event           = 'EV_DELETE'
+*      event           = 'Action'
+      commit_work     = 'X'
+      event_language  = sy-langu
+      language        = sy-langu
+      user            = sy-uname
+    TABLES
+      input_container = lt_cont
+      message_lines   = lt_msglines
+      message_struct  = lt_msgstruc.
+
+  COMMIT WORK AND WAIT .
+*  WAIT UP TO 2 SECONDS.
+  SELECT * FROM sww_wi2obj INTO CORRESPONDING FIELDS OF TABLE lt_sww WHERE instid = objkey.
+  SORT lt_sww ASCENDING BY wi_id.
+  READ TABLE lt_sww INTO lx_sww INDEX 1.
+  DATA : lv_mess TYPE c LENGTH 50.
+  DATA : lv_mess2 TYPE c LENGTH 50.
+  DATA : lv_mess3 TYPE c LENGTH 50.
+  lv_mess = 'Data has been processed for deletion under ' .
+  CONCATENATE 'document' lx_sww-wi_id INTO lv_mess2 SEPARATED BY space.
+l_message_manager->report_t100_message(
+       EXPORTING
+         msgid = 'AQ'
+         msgno = '003'
+         msgty = 'S'
+         p1    = lv_mess
+*         p1    = 'Data Has Been Deleted'
+         p2    = lv_mess2
+         p3    = ''
+         p4    = ''
+         view  = 'MAIN'
+         show_as_popup = 'X' ).
+
+    me->refresh_tab2( ).
+    RETURN.
+   ENDIF.
+endmethod.
