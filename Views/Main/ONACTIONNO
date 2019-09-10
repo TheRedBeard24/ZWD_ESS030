@@ -1,0 +1,26 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+method ONACTIONNO .
+  DATA l_current_controller TYPE REF TO if_wd_controller.
+  DATA l_message_manager    TYPE REF TO if_wd_message_manager.
+  DATA :
+        lx_ztb   TYPE ztb_guidmap,
+        lx_z2001 TYPE ztb_P2001  ,
+        guid     TYPE guid_32.
+
+  l_current_controller ?= wd_this->wd_get_api( ).
+  l_message_manager = l_current_controller->get_message_manager( ).
+       l_message_manager->report_t100_message(
+       EXPORTING
+         msgid = 'AQ'
+         msgno = '003'
+         msgty = 'S'
+         p1    = 'Deletion has been cancelled.'
+         p2    = ''
+         p3    = ''
+         p4    = ''
+         view  = 'MAIN_COPY'
+         show_as_popup = 'X' ).
+
+    me->refresh_tab2( ).
+endmethod.
