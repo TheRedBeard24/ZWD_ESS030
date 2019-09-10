@@ -1,0 +1,320 @@
+WDEVENT X	CL_WD_CUSTOM_EVENT
+CONTEXT_ELEMENT X	IF_WD_CONTEXT_ELEMENT
+ID	STRING
+
+METHOD onactionedit .
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+  DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* get all declared attributes
+  lo_el_leave_req->get_static_attributes(
+    IMPORTING
+      static_attributes = ls_leave_req ).
+
+           DATA lo_el_context TYPE REF TO if_wd_context_element.
+           DATA ls_context TYPE wd_this->element_context.
+           DATA lv_vis_detail TYPE wd_this->element_context-vis_detail.
+
+*         get element via lead selection
+          lo_el_context = wd_context->get_element( ).
+
+*         @TODO handle not set lead selection
+          IF lo_el_context IS INITIAL.
+          ENDIF.
+
+
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_save_butt TYPE wd_this->element_context-save_butt.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+
+
+   DATA lo_nd_action TYPE REF TO if_wd_context_node.
+
+   DATA lo_el_action TYPE REF TO if_wd_context_element.
+   DATA ls_action TYPE wd_this->element_action.
+   DATA lv_visible TYPE wd_this->element_action-visible.
+
+*  navigate from <CONTEXT> to <ACTION> via lead selection
+   lo_nd_action = wd_context->get_child_node( name = wd_this->wdctx_action ).
+
+*  @TODO handle non existant child
+*  IF lo_nd_action IS INITIAL.
+*  ENDIF.
+
+*  get element via lead selection
+   lo_el_action = lo_nd_action->get_element( ).
+
+*  @TODO handle not set lead selection
+   IF lo_el_action IS INITIAL.
+   ENDIF.
+
+
+
+
+IF ls_leave_req-status(10) eq 'In Process'.
+*  @TODO fill attribute
+  lv_visible = abap_false.
+
+*  set single attribute
+   lo_el_action->set_attribute(
+     name =  `VISIBLE`
+     value = lv_visible ).
+
+
+
+
+*         @TODO fill attribute
+         lv_vis_detail = abap_true.
+
+*         set single attribute
+          lo_el_context->set_attribute(
+            name =  `VIS_DETAIL`
+            value = lv_vis_detail ).
+
+
+* @TODO fill attribute
+ lv_save_butt = abap_true.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `SAVE_BUTT`
+    value = lv_save_butt ).
+ELSEIF ls_leave_req-status(8) eq 'Approved'.
+
+*  @TODO fill attribute
+  lv_visible = abap_false.
+
+*  set single attribute
+   lo_el_action->set_attribute(
+     name =  `VISIBLE`
+     value = lv_visible ).
+
+
+*         @TODO fill attribute
+         lv_vis_detail = abap_true.
+
+*         set single attribute
+          lo_el_context->set_attribute(
+            name =  `VIS_DETAIL`
+            value = lv_vis_detail ).
+* @TODO fill attribute
+ lv_save_butt = abap_true.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `SAVE_BUTT`
+    value = lv_save_butt ).
+
+ELSE.
+*         @TODO fill attribute
+         lv_vis_detail = abap_true.
+
+*         set single attribute
+          lo_el_context->set_attribute(
+            name =  `VIS_DETAIL`
+            value = lv_vis_detail ).
+
+* @TODO fill attribute
+ lv_save_butt = abap_false.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `SAVE_BUTT`
+    value = lv_save_butt ).
+
+ENDIF.
+
+
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_is_edit TYPE wd_this->element_context-is_edit.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_is_edit = abap_true.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `IS_EDIT`
+    value = lv_is_edit ).
+
+
+  lo_el_context->set_attribute(
+    name =  `VISIBLE_NOTE`
+    value = lv_is_edit ).
+
+
+DATA : lx_note TYPE ztb_guidnote.
+DATA : lx_ztb TYPE ztb_p2001.
+
+SELECT SINGLE * FROM ztb_guidnote INTO lx_note WHERE guid = ls_leave_req-guid.
+IF sy-subrc eq 0.
+ls_leave_req-note = lx_note-note.
+  lo_el_leave_req->set_static_attributes(
+    EXPORTING
+      static_attributes = ls_leave_req ).
+ENDIF.
+
+SELECT SINGLE * FROM ztb_p2001 INTO lx_ztb WHERE guid = ls_leave_req-guid.
+IF sy-subrc eq 0.
+    DATA lo_nd_attachment TYPE REF TO if_wd_context_node.
+
+    DATA lo_el_attachment TYPE REF TO if_wd_context_element.
+    DATA ls_attachment TYPE wd_this->element_attachment.
+    DATA lv_filetype TYPE wd_this->element_attachment-filetype.
+
+*   navigate from <CONTEXT> to <ATTACHMENT> via lead selection
+    lo_nd_attachment = wd_context->get_child_node( name = wd_this->wdctx_attachment ).
+
+*   @TODO handle non existant child
+*   IF lo_nd_attachment IS INITIAL.
+*   ENDIF.
+
+*   get element via lead selection
+    lo_el_attachment = lo_nd_attachment->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_attachment IS INITIAL.
+    ENDIF.
+
+*   @TODO fill attribute
+   lv_filetype = lx_ztb-zfiletype.
+
+*   set single attribute
+    lo_el_attachment->set_attribute(
+      name =  `FILETYPE`
+      value = lv_filetype ).
+
+ENDIF.
+DATA : lx_att TYPE zthcm_erpskm_att.
+SELECT SINGLE * FROM zthcm_erpskm_att INTO CORRESPONDING FIELDS OF lx_att
+  WHERE zguid = ls_leave_req-guid.
+
+*CHECK lx_att-zfladd_attch IS NOT INITIAL.
+if lx_att-zfladd_attch IS NOT INITIAL.
+*url = lx_att-zfladd_attch.
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_pdf TYPE wd_this->element_context-pdf.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+DATA :gv_file TYPE xstring,
+      flag.
+CLEAR flag.
+open DATASET lx_att-zfladd_attch FOR INPUT in BINARY MODE.
+IF sy-subrc eq 0.
+read DATASET lx_att-zfladd_attch INTO gv_file.
+ELSE.
+  flag = 'X'.
+ENDIF.
+CLOSE DATASET lx_att-zfladd_attch.
+ lv_pdf = gv_file.
+
+IF flag IS NOT INITIAL.
+ CLEAR lv_pdf.
+ENDIF.
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `PDF`
+    value = lv_pdf ).
+
+
+
+
+    lo_el_attachment->set_attribute(
+      name =  `FILENAME`
+      value = lx_att-zflnam_attch ).
+        lo_el_attachment->set_attribute(
+      name =  `PURE_FILENAME`
+      value = lx_att-zflnam_attch ).
+
+          DATA lo_nd_element TYPE REF TO if_wd_context_node.
+
+          DATA lo_el_element TYPE REF TO if_wd_context_element.
+          DATA ls_element TYPE wd_this->element_element.
+          DATA lv_visible_delete TYPE wd_this->element_element-visible_delete.
+
+*         navigate from <CONTEXT> to <ELEMENT> via lead selection
+          lo_nd_element = wd_context->get_child_node( name = wd_this->wdctx_element ).
+
+*         @TODO handle non existant child
+*         IF lo_nd_element IS INITIAL.
+*         ENDIF.
+
+*         get element via lead selection
+          lo_el_element = lo_nd_element->get_element( ).
+
+*         @TODO handle not set lead selection
+          IF lo_el_element IS INITIAL.
+          ENDIF.
+
+*         @TODO fill attribute
+         lv_visible_delete = abap_true.
+
+*         set single attribute
+          lo_el_element->set_attribute(
+            name =  `VISIBLE_DELETE`
+            value = lv_visible_delete ).
+
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_pdfvis TYPE wd_this->element_context-pdfvis.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_pdfvis = abap_true.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `PDFVIS`
+    value = lv_pdfvis ).
+
+
+ENDIF.
+ENDMETHOD.
