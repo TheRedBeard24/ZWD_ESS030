@@ -1,0 +1,43 @@
+MESSAGE_MANAGER	Importing	IF_WD_MESSAGE_MANAGER
+SUBTY	Importing	SUBTY
+STATUS	Returning	BOOLEAN
+
+METHOD check_workitem .
+  DATA lo_nd_header TYPE REF TO if_wd_context_node.
+  DATA lo_el_header TYPE REF TO if_wd_context_element.
+  DATA ls_header TYPE wd_this->element_header.
+  DATA lv_pernr TYPE wd_this->element_header-pernr.
+  lo_nd_header = wd_context->get_child_node( name = wd_this->wdctx_header ).
+  lo_el_header = lo_nd_header->get_element( ).
+  lo_el_header->get_attribute(
+    EXPORTING
+      name =  `PERNR`
+    IMPORTING
+      value = lv_pernr ).
+
+  DATA: lt_return TYPE TABLE OF bapireturn1,
+        lx_return TYPE bapireturn1.
+  CALL FUNCTION 'ZFM_CHECK_WORKITEM'
+    EXPORTING
+      pernr  = lv_pernr
+      itype  = '01'
+      subty  = subty
+    TABLES
+      return = lt_return.
+  READ TABLE lt_return INTO lx_return WITH KEY type = 'E'.
+  IF sy-subrc EQ 0.
+    status = 'X'.
+
+    message_manager->report_t100_message(
+       EXPORTING
+         msgid = lx_return-id
+         msgno = lx_return-number
+         msgty = lx_return-type
+         p1    = lx_return-message_v1
+         p2    = lx_return-message_v2
+         p3    = lx_return-message_v3
+         p4    = lx_return-message_v4
+         view  = 'MAIN'
+         show_as_popup = 'X' ).
+  ENDIF.
+ENDMETHOD.
