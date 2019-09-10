@@ -1,0 +1,25 @@
+method CHECK_ADMIN .
+
+ DATA:
+    lr_ctrl_api  TYPE REF TO if_wd_controller,
+    lr_comp_api  TYPE REF TO if_wd_component,
+    lr_appl_api  TYPE REF TO if_wd_application,
+    lr_appl_info TYPE REF TO if_wd_rr_application,
+    l_appl_name  TYPE string.
+
+
+* get app name
+  lr_ctrl_api  = wd_this->wd_get_api( ).
+  lr_comp_api  = lr_ctrl_api->get_component( ).
+  lr_appl_api  = lr_comp_api->get_application( ).
+  lr_appl_info = lr_appl_api->get_application_info( ).
+  l_appl_name  = lr_appl_info->get_name( ).
+
+  "kondisi untuk admin
+  IF l_appl_name EQ 'ZWD_ESS023_ADMIN'.
+    return = abap_true.
+  ELSE.
+    return = abap_false.
+  ENDIF.
+
+endmethod.
