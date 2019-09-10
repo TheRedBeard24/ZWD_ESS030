@@ -1,0 +1,108 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+OVS_CALLBACK_OBJECT	IF_WD_OVS
+
+method ON_OVS_DATE .
+* declare data structures for the fields to be displayed and
+* for the table columns of the selection list, if necessary
+  types:
+    begin of lty_stru_input,
+*   add fields for the display of your search input here
+      field1 type string,
+    end of lty_stru_input.
+  types:
+    begin of lty_stru_list,
+*   add fields for the selection list here
+      column1 type string,
+    end of lty_stru_list.
+
+  data: ls_search_input  type lty_stru_input,
+        lt_select_list   type standard table of lty_stru_list,
+        ls_text          type wdr_name_value,
+        lt_label_texts   type wdr_name_value_list,
+        lt_column_texts  type wdr_name_value_list,
+        lv_window_title  type string,
+        lv_table_header  type string.
+
+  field-symbols: <ls_query_params> type lty_stru_input,
+                 <ls_selection>    type lty_stru_list.
+
+  case ovs_callback_object->phase_indicator.
+
+    when if_wd_ovs=>co_phase_0.  "configuration phase, may be omitted
+*   in this phase you have the possibility to define the texts,
+*   if you do not want to use the defaults (DDIC-texts)
+
+      ls_text-name = `FIELD1`.  "must match a field name of search
+      ls_text-value = `MYTEXT`. "wd_assist->get_text( `001` ).
+      insert ls_text into table lt_label_texts.
+
+      ls_text-name = `COLUMN1`.  "must match a field in list structure
+      ls_text-value = `MYTEXT2`. "wd_assist->get_text( `002` ).
+      insert ls_text into table lt_column_texts.
+
+*      lv_window_title = wd_assist->get_text( `003` ).
+*      lv_table_header = wd_assist->get_text( `004` ).
+
+      ovs_callback_object->set_configuration(
+                label_texts  = lt_label_texts
+                column_texts = lt_column_texts
+                window_title = lv_window_title
+                table_header = lv_table_header ).
+
+
+    when if_wd_ovs=>co_phase_1.  "set search structure and defaults
+*   In this phase you can set the structure and default values
+*   of the search structure. If this phase is omitted, the search
+*   fields will not be displayed, but the selection table is
+*   displayed directly.
+*   Read values of the original context (not necessary, but you
+*   may set these as the defaults). A reference to the context
+*   element is available in the callback object.
+
+      ovs_callback_object->context_element->get_static_attributes(
+          importing static_attributes = ls_search_input ).
+*     pass the values to the OVS component
+      ovs_callback_object->set_input_structure(
+          input = ls_search_input ).
+
+
+    when if_wd_ovs=>co_phase_2.
+*   If phase 1 is implemented, use the field input for the
+*   selection of the table.
+*   If phase 1 is omitted, use values from your own context.
+
+      if ovs_callback_object->query_parameters is not bound.
+******** TODO exception handling
+      endif.
+      assign ovs_callback_object->query_parameters->*
+                              to <ls_query_params>.
+      if not <ls_query_params> is assigned.
+******** TODO exception handling
+      endif.
+
+*     call business logic for a table of possible values
+*     lt_select_list = ???
+
+      ovs_callback_object->set_output_table( output = lt_select_list ).
+
+
+    when if_wd_ovs=>co_phase_3.
+*   apply result
+
+      if ovs_callback_object->selection is not bound.
+******** TODO exception handling
+      endif.
+
+      assign ovs_callback_object->selection->* to <ls_selection>.
+      if <ls_selection> is assigned.
+*        ovs_callback_object->context_element->set_attribute(
+*                               name  = `COLUMN1`
+*                               value = <ls_selection>-column1 ).
+*      or
+*        ovs_callback_object->context_element->set_static_attributes(
+*                               static_attributes = <ls_selection> ).
+
+      endif.
+  endcase.
+
+endmethod.
