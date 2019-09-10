@@ -1,0 +1,85 @@
+LX_P2001	Importing	ZTB_P2001
+P_ABRTG	Changing	P2001-ABRTG
+P_ABWTG	Changing	P2001-ABWTG
+
+method GET_QUOTA .
+  DATA:
+        P_M0000 Type table of P0000                   ,
+        P_M0001 Type table of P0001                    ,
+        P_M0002 Type table of P0002                    ,
+        P_M0007 Type table of P0007                    ,
+        P_M2001 Type table of P2001                    ,
+        P_M2002 Type table of P2002                    ,
+        P_M2003 Type table of P2003                    ,
+        P_TIMES_PER_DAY Type table of PTM_TIMES_PER_DAY    ,
+        P_HOLIDAY Type table of HOLIDAY                ,
+        P_PERNR  TYPE PSPAR-PERNR                      ,
+        P_SUBTY  TYPE PSPAR-SUBTY                      ,
+        P_BEGDA  TYPE P2001-BEGDA                      ,
+        P_ENDDA  TYPE P2001-ENDDA                      ,
+        P_BEGUZ  TYPE P2001-BEGUZ                      ,
+        P_ENDUZ  TYPE P2001-ENDUZ                      ,
+        P_KALTG  TYPE P2001-KALTG                      ,
+        P_STDAZ  TYPE P2001-STDAZ                      ,
+*        P_ABWTG  TYPE P2001-ABWTG                      ,
+*        P_ABRTG  TYPE P2001-ABRTG                      ,
+        P_ABRST  TYPE P2001-ABRST                      ,
+        P_HRSIF  TYPE P2001-HRSIF                      ,
+        P_ALLDF  TYPE P2001-HRSIF VALUE 'X'                     ,
+        P_VTKEN  TYPE P2001-VTKEN                      ,
+        P_HOLIDAY_FILLED                               ,
+        p_breaks type hrtim_att_breaks                 ,
+        P_RESUBRC LIKE SY-SUBRC                        .
+  DATA : pa0001 TYPE TABLE OF pa0001,
+         xa0001 TYPE pa0001,
+         pa0000 TYPE TABLE OF pa0000,
+         xa0000 TYPE pa0000.
+  data: error_wo_exception type c.
+
+  P_PERNR  = LX_P2001-pernr.
+  P_SUBTY  = LX_P2001-awart.
+  P_BEGDA  = LX_P2001-begda.
+  P_ENDDA  = LX_P2001-endda.
+
+  SELECT * FROM pa0001 into CORRESPONDING FIELDS OF TABLE P_M0001 WHERE pernr = LX_P2001-pernr.
+  SELECT * FROM pa0000 into CORRESPONDING FIELDS OF TABLE P_M0000 WHERE pernr = LX_P2001-pernr.
+  SELECT * FROM pa0002 into CORRESPONDING FIELDS OF TABLE P_M0002 WHERE pernr = LX_P2001-pernr.
+  SELECT * FROM pa0007 into CORRESPONDING FIELDS OF TABLE P_M0007 WHERE pernr = LX_P2001-pernr.
+  SELECT * FROM pa2001 into CORRESPONDING FIELDS OF TABLE P_M2001 WHERE pernr = LX_P2001-pernr.
+
+  CALL FUNCTION 'HR_ABS_ATT_TIMES_AT_ENTRY'
+       EXPORTING
+            PERNR             =  P_PERNR
+            AWART             =  P_SUBTY
+            BEGDA             =  P_BEGDA
+            ENDDA             =  P_ENDDA
+       IMPORTING
+            ABWTG             =  P_ABWTG
+            ABRTG             =  P_ABRTG
+            ABRST             =  P_ABRST
+            KALTG             =  P_KALTG
+            HRSIF             =  P_HRSIF
+            ALLDF             =  P_ALLDF
+            error_wo_exception = error_wo_exception
+       TABLES
+            M0000             =  P_M0000
+            M0001             =  P_M0001
+            M0002             =  P_M0002
+            M0007             =  P_M0007
+            M2001             =  P_M2001
+            M2002             =  P_M2002
+            M2003             =  P_M2003
+            TIMES_PER_DAY     =  P_TIMES_PER_DAY
+       CHANGING
+            BEGUZ             =  P_BEGUZ
+            ENDUZ             =  P_ENDUZ
+            VTKEN             =  P_VTKEN
+            STDAZ             =  P_STDAZ
+            BREAKS            =  P_BREAKS    "YMMPH0K000026
+       EXCEPTIONS
+            IT0001_MISSING    = 1
+            CUSTOMIZING_ERROR = 2
+            ERROR_OCCURRED    = 3                        "YAYP40K054237
+            END_BEFORE_BEGIN  = 4.
+
+endmethod.
