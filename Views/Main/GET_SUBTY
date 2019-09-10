@@ -1,0 +1,16 @@
+SUBTY	Returning	SUBTY
+
+METHOD get_subty .
+  DATA: lv_index TYPE i.
+  DATA lo_nd_tbl_name TYPE REF TO if_wd_context_node.
+  DATA lt_tbl_name TYPE wd_this->elements_tbl_name.
+  DATA lx_tbl_name LIKE LINE OF lt_tbl_name.
+
+  lo_nd_tbl_name = wd_context->get_child_node( name = wd_this->wdctx_tbl_name ).
+  lo_nd_tbl_name->get_static_attributes_table( IMPORTING table = lt_tbl_name ).
+  lv_index = lo_nd_tbl_name->get_lead_selection_index( ).
+  IF lv_index GT 0.
+    READ TABLE lt_tbl_name INTO lx_tbl_name INDEX lv_index.
+    subty = lx_tbl_name-slart.
+  ENDIF.
+ENDMETHOD.
