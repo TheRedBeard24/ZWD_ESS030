@@ -1,0 +1,344 @@
+INFTY	Exporting	CHAR4
+MESS	Exporting	CHAR255
+SUBRC	Exporting	SY-SUBRC
+
+method GET_SIMULATE .
+  DATA : LOCK_USER TYPE sy-uname.
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+  DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* get all declared attributes
+  lo_el_leave_req->get_static_attributes(
+    IMPORTING
+      static_attributes = ls_leave_req ).
+
+DATA : ls_t554s TYPE t554s.
+SELECT SINGLE * FROM t554s INTO ls_t554s WHERE moabw = '90' AND subty = ls_leave_req-awart and endda = '99991231'.
+IF  ls_t554s IS INITIAL.
+subrc = '4'.
+mess = 'Attendance or Absence Type Not Found'.
+exit.
+ENDIF.
+
+
+    DATA :
+      EMPLOYEENUMBER  type  BAPIP2001-PERNR       ,
+      VALIDITYBEGIN   type  BAPIP2001-BEGDA       ,
+      VALIDITYEND     type  BAPIP2001-ENDDA       ,
+      START           type  BAPIP2001-BEGUZ       ,
+      END             type  BAPIP2001-ENDUZ       ,
+      ABSENCETYPE     type  BAPIP2001-AWART       ,
+      ABSENCEHOURS    type  BAPIP2001-STDAZ       ,
+      NOCOMMIT        type  BAPI_STAND-NO_COMMIT VALUE 'X'  ,
+      RETURN          type  BAPIRETURN1           ,
+      status_lv       TYPE  p0001-ZORG,
+      SUBTYPE         type  BAPIP2001-SUBTY       ,
+      OBJECTID        type  BAPIP2001-OBJPS       ,
+      LOCKINDICATOR   type  BAPIP2001-SPRPS       ,
+      RECORDNUMBER    type  BAPIP2001-SEQNR       ,
+      lx_2001          TYPE  ztb_p2001.
+
+*SELECT SINGLE * FROM ztb_p2001 INTO lx_2001 WHERE guid = ls_leave_req-guid.
+  EMPLOYEENUMBER   = ls_leave_req-pernr.
+  VALIDITYBEGIN    = ls_leave_req-begda.
+  VALIDITYEND      = ls_leave_req-endda.
+  START            = ''.
+  END              = ''.
+  ABSENCETYPE      = ls_leave_req-awart.
+*  ABSENCEHOURS     = ls_leave_req-stdaz.
+  NOCOMMIT         = 'X'.
+
+DATA : messg TYPE REF TO IF_HRPA_MESSAGE_HANDLER.
+DATA : ok TYPE   BOOLE_D.
+
+CALL FUNCTION 'BAPI_EMPLOYEE_ENQUEUE'
+  EXPORTING
+    number        = ls_leave_req-pernr
+ IMPORTING
+   RETURN        = return
+          .
+if sy-subrc eq 0 AND return-message IS INITIAL.
+
+*********************************************************
+DATA: lt_0001   TYPE table of p0001   ,
+      lt_0002   TYPE table of p0002   ,
+      lt_0021   TYPE table of p0021   ,
+      lx_0001   TYPE   p0001          ,
+      lx_0002   TYPE   p0002          ,
+      lx_0021   TYPE   p0021
+.
+      REFRESH lt_0001.
+      CALL FUNCTION 'HR_READ_INFOTYPE'
+        EXPORTING
+          tclas           = 'A'
+          pernr           = ls_leave_req-pernr
+          infty           = '0001'
+          begda           = ls_leave_req-begda
+          endda           = ls_leave_req-endda
+        TABLES
+          infty_tab       = lt_0001
+        EXCEPTIONS
+          infty_not_found = 1
+          OTHERS          = 2.
+
+      CHECK sy-subrc EQ 0.
+      SORT  lt_0001 BY endda DESCENDING.
+      READ TABLE lt_0001 INDEX 1 INTO lx_0001.
+
+      REFRESH lt_0002.
+      CALL FUNCTION 'HR_READ_INFOTYPE'
+        EXPORTING
+          tclas           = 'A'
+          pernr           = ls_leave_req-pernr
+          infty           = '0002'
+          begda           = ls_leave_req-begda
+          endda           = ls_leave_req-endda
+        TABLES
+          infty_tab       = lt_0002
+        EXCEPTIONS
+          infty_not_found = 1
+          OTHERS          = 2.
+
+      SORT  lt_0002 BY endda DESCENDING.
+      READ TABLE lt_0002 INDEX 1 INTO lx_0002.
+
+      REFRESH lt_0021.
+      CALL FUNCTION 'HR_READ_INFOTYPE'
+        EXPORTING
+          tclas           = 'A'
+          pernr           = ls_leave_req-pernr
+          infty           = '0021'
+          begda           = ls_leave_req-begda
+          endda           = ls_leave_req-endda
+        TABLES
+          infty_tab       = lt_0021
+        EXCEPTIONS
+          infty_not_found = 1
+          OTHERS          = 2.
+
+      CASE ls_leave_req-awart.
+*      CASE innnn-subty.
+        WHEN 'C000'.
+          IF lx_0001-abkrs EQ 'P0' OR lx_0001-abkrs EQ 'P4'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'C001'.
+          IF lx_0001-abkrs EQ 'P1' OR lx_0001-abkrs EQ 'P2'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'C002'.
+          IF lx_0002-gesch EQ '1'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'C003'.
+          IF lx_0002-gesch EQ '1'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'I002'.
+          IF lx_0002-famst EQ '1'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'I003'.
+          IF lx_0002-famst EQ '0' OR lx_0002-famst EQ '2' OR lx_0002-famst EQ '3' OR lx_0002-gesch EQ '2'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'I010'.
+          READ TABLE lt_0021  INTO lx_0021 WITH KEY famsa = '2'.
+          IF lx_0021-fasex EQ ' '.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'I011'.
+          IF lx_0002-konfe EQ '01' OR lx_0002-konfe EQ '04' OR
+             lx_0002-konfe EQ '05' OR lx_0002-konfe EQ '06'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'I012'.
+          IF lx_0002-konfe EQ '01' OR lx_0002-konfe EQ '02' OR
+             lx_0002-konfe EQ '03' OR lx_0002-konfe EQ '04' OR
+             lx_0002-konfe EQ '06'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN 'I014'.
+          IF lx_0002-konfe EQ '05' OR lx_0002-konfe EQ '02' OR
+             lx_0002-konfe EQ '03' OR lx_0002-konfe EQ '04' OR
+             lx_0002-konfe EQ '06'.
+*            MESSAGE e889(co) WITH 'Abnormal Absence Type' ls_leave_req-awart.
+
+      CONCATENATE 'Abnormal Absence Type' ls_leave_req-awart INTO MESS SEPARATED BY SPACE.
+      subrc = '4'.
+          ENDIF.
+        WHEN OTHERS.
+      ENDCASE.
+*    ENDIF.
+
+IF subrc IS NOT INITIAL.
+   CALL FUNCTION 'BAPI_EMPLOYEE_DEQUEUE'
+      EXPORTING
+        number        = ls_leave_req-pernr
+*     IMPORTING
+*       RETURN        =
+.
+ENDIF.
+CHECK subrc IS INITIAL.
+
+*********************************************************
+case ls_t554s-art01.
+*CASE ls_leave_req-awart(1).
+  WHEN 'P'.
+     DATA : lv_awart TYPE p2002-awart,
+         ls_p2002 TYPE p2002,
+         lv_ret01 TYPE bapireturn1,
+         lv_bpkey TYPE bapipakey,
+         lt_reta2 TYPE TABLE OF bapiret2 ,"OCCURS 0 WITH HEADER LINE.
+         lx_reta2 TYPE bapiret2.
+
+
+  MOVE : ls_leave_req-pernr TO ls_p2002-pernr,
+         ls_leave_req-awart TO ls_p2002-subty,
+         ls_leave_req-begda TO ls_p2002-begda,
+         ls_leave_req-endda TO ls_p2002-endda,
+         ls_leave_req-awart TO ls_p2002-awart,
+         'X'                TO ls_p2002-alldf.
+  INFTY = '2002'.
+  CALL FUNCTION 'HR_INFOTYPE_OPERATION'
+    EXPORTING
+      infty            = '2002'
+      number           = ls_leave_req-pernr
+      subtype          = ls_leave_req-awart
+      objectid         = ' '
+      lockindicator    = ' '
+      validityend      = ls_leave_req-begda
+      validitybegin    = ls_leave_req-endda
+*     RECORDNUMBER     =
+      record           = ls_p2002
+      operation        = 'INS'
+      tclas            = 'A'
+      dialog_mode      = '0'
+      nocommit         = 'X'
+*     VIEW_IDENTIFIER  =
+*     SECONDARY_RECORD =
+    IMPORTING
+      return           = lv_ret01
+      key              = lv_bpkey.
+
+    IF lv_ret01-id ne 'S' AND lv_ret01-id IS NOT INITIAL.
+      subrc = '4'.
+      mess = lv_ret01-message.
+    ENDIF.
+
+  WHEN 'A'.
+
+  INFTY = '2001'.
+CALL FUNCTION 'BAPI_ABSENCE_CREATE'
+  EXPORTING
+    employeenumber       = EMPLOYEENUMBER
+    validitybegin        = VALIDITYBEGIN
+    validityend          = VALIDITYEND
+    START                = START
+    END                  = END
+    absencetype          = ABSENCETYPE
+    ABSENCEHOURS         = ABSENCEHOURS
+    NOCOMMIT             = NOCOMMIT
+ IMPORTING
+   RETURN               = RETURN
+   EMPLOYEENUMBER       = EMPLOYEENUMBER
+   SUBTYPE              = SUBTYPE
+   OBJECTID             = OBJECTID
+   LOCKINDICATOR        = LOCKINDICATOR
+   VALIDITYBEGIN        = VALIDITYBEGIN
+   VALIDITYEND          = VALIDITYEND
+   RECORDNUMBER         = RECORDNUMBER
+          .
+    IF return-id ne 'S' AND return-id ne space.
+*       lv_error = 'X'.
+      subrc = '4'.
+*      subrc = return-id.
+      mess = return-message.
+    ENDIF.
+
+
+
+    ENDCASE.
+    CALL FUNCTION 'BAPI_EMPLOYEE_DEQUEUE'
+      EXPORTING
+        number        = ls_leave_req-pernr
+*     IMPORTING
+*       RETURN        =
+.
+    ELSE.
+      DATA : lx_pa0105 TYPE pa0105.
+      DATA : lx_pa0001 TYPE pa0001.
+      CALL FUNCTION 'IF_HR_ENQUEUE_OBJECT'
+    EXPORTING
+      plvar                  = '01'
+      otype                  = 'P'
+      objid                  = EMPLOYEENUMBER
+*     ENQUEUE_ONCE           = ' '
+   IMPORTING
+     LOCK_USER              = LOCK_USER
+   EXCEPTIONS
+     ENQUEUE_FAILED         = 1
+     OBJID_IS_INITIAL       = 2
+     ILLEGAL_OTYPE          = 3
+     INTERNAL_ERROR         = 4
+     OTHERS                 = 5.
+    SELECT SINGLE * FROM pa0105 into lx_pa0105 WHERE usrid = lock_user AND endda = '99991231'.
+    SELECT SINGLE * FROM pa0001 INTO lx_pa0001 WHERE pernr = lx_pa0105-pernr AND endda = '99991231'.
+    CONCATENATE 'User Has Been Lock by' lx_pa0001-ename INTO mess SEPARATED BY space.
+    subrc = '4'.
+
+    ENDIF.
+*  WHEN OTHERS.
+*ENDCASE.
+
+** SUBRC
+** MESS
+CALL FUNCTION 'BUFFER_REFRESH_ALL'
+          .
+CALL FUNCTION 'RH_CLEAR_BUFFER'
+          .
+
+ROLLBACK WORK.
+endmethod.
