@@ -1,0 +1,39 @@
+WDEVENT X	CL_WD_CUSTOM_EVENT
+
+METHOD onactionenter_pernr .
+
+  DATA lo_nd_input TYPE REF TO if_wd_context_node.
+  DATA lo_el_input TYPE REF TO if_wd_context_element.
+  DATA ls_input TYPE wd_this->element_input.
+  DATA lv_pernr TYPE wd_this->element_input-pernr.
+  DATA lv_cname TYPE emnam. "wd_this->element_input-cname.
+  DATA lo_nd_header TYPE REF TO if_wd_context_node.
+  DATA lo_el_header TYPE REF TO if_wd_context_element.
+  DATA ls_header TYPE wd_this->element_header.
+
+
+  lo_nd_input = wd_context->get_child_node( name = wd_this->wdctx_input ).
+  lo_el_input = lo_nd_input->get_element( ).
+  lo_el_input->get_attribute( EXPORTING name =  `PERNR` IMPORTING value = lv_pernr ).
+
+
+  lo_nd_header = wd_context->get_child_node( name = wd_this->wdctx_header ).
+  lo_el_header = lo_nd_header->get_element( ).
+  lo_el_header->set_attribute( name =  `PERNR` value = lv_pernr ).
+
+
+
+  CALL FUNCTION 'HR_TMW_GET_EMPLOYEE_NAME'
+    EXPORTING
+      person_no = lv_pernr
+    IMPORTING
+      edit_name = lv_cname.
+
+
+
+  lo_el_input->set_attribute( name =  `CNAME` value = lv_cname ).
+
+
+
+
+ENDMETHOD.
