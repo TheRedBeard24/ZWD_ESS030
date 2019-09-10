@@ -1,0 +1,43 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+METHOD onactionlink_detail .
+*  CONSTANTS:  lc_context_element         TYPE string VALUE 'CONTEXT_ELEMENT'.
+**Local context node declaration
+*  DATA:  loe_clicked_element             TYPE REF TO if_wd_context_element,
+*         lon_attach                      TYPE REF TO if_wd_context_node,
+*         lon_context TYPE REF TO cl_wdr_context_element,
+*         ls_p9000    TYPE p9000.
+**Get the context element
+*  CALL METHOD wdevent->get_context_element
+*    EXPORTING
+*      name  = lc_context_element
+*    RECEIVING
+*      value = loe_clicked_element.
+*
+*  lon_context ?= loe_clicked_element.
+*  CALL METHOD lon_context->if_wd_context_element~get_static_attributes
+*    IMPORTING
+*      static_attributes = ls_p9000.
+*
+**--------------------------------------------------------------------*
+*  DATA lo_nd_action TYPE REF TO if_wd_context_node.
+*  DATA lo_el_action TYPE REF TO if_wd_context_element.
+*  DATA ls_action TYPE wd_this->element_action.
+*  DATA lv_readonly TYPE wd_this->element_action-readonly.
+*  DATA lv_visibl TYPE wd_this->element_action-visible.
+*  DATA lv_hidden_on_display TYPE wd_this->element_action-hidden_on_display.
+*
+*  lo_nd_action = wd_context->get_child_node( name = wd_this->wdctx_action ).
+*  lo_el_action = lo_nd_action->get_element( ).
+*
+*  lv_readonly = 'X'.
+*  lv_visibl = space.
+*  lv_hidden_on_display = abap_false.
+*  lo_el_action->set_attribute( name =  `HIDDEN_ON_DISPLAY` value = lv_hidden_on_display ).
+*
+** set single attribute
+*  lo_el_action->set_attribute( name =  `READONLY` value = lv_readonly ).
+*  lo_el_action->set_attribute( name =  `VISIBLE` value = lv_visibl ).
+*
+*  wd_this->fire_to_detail_plg( EXPORTING i_p9000 = ls_p9000 ).
+ENDMETHOD.
