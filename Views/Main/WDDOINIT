@@ -1,0 +1,548 @@
+METHOD wddoinit .
+ TYPES :
+        BEGIN OF ty_data,
+        pernr         TYPE pernr_D,
+        guid          TYPE guid_32,
+        awart         TYPE T554T-AWART,
+        atext         TYPE T554T-ATEXT,
+        begda         TYPE PA2001-BEGDA,
+        beguz         TYPE PA2001-beguz,
+        endda         TYPE PA2001-endda,
+        enduz         TYPE PA2001-enduz,
+        ename         TYPE PA0001-ENAME,
+        status        TYPE char30,
+        abstd         TYPE P2001-STDAZ,
+        abwtg         TYPE P2001-ABWTG,
+        apprv         TYPE PA0001-ENAME,
+        note          TYPE TIM_REQ_NOTICE,
+        apprv2        TYPE PA0001-ENAME,
+        textawart     TYPE CHAR2_256,
+        attch         TYPE char4,
+        guid_doc      TYPE SWW_WIID,
+        END OF ty_data.
+
+DATA:  it_data TYPE TABLE OF ty_data,
+       lx_data TYPE ty_data,
+       context_node type ref to if_wd_context_node,
+       context_node2 type ref to if_wd_context_node.
+
+
+*  DATA : wdev LIKE REF TO CL_WD_CUSTOM_EVENT.
+  DATA : lo_componentcontroller TYPE REF TO ig_componentcontroller .
+  DATA lv_return TYPE boolean.
+  DATA lo_nd_input TYPE REF TO if_wd_context_node.
+  DATA lo_el_input TYPE REF TO if_wd_context_element.
+  DATA ls_input TYPE wd_this->element_input.
+  DATA lv_visible_input TYPE wd_this->element_input-visible_input.
+
+
+ DATA lr_view_controller TYPE REF TO cl_wdr_view.
+
+
+   DATA lo_el_context TYPE REF TO if_wd_context_element.
+   DATA ls_context TYPE wd_this->element_context.
+   DATA lv_vis_detail TYPE wd_this->element_context-vis_detail.
+
+************************************************************************
+
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+  DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* get all declared attributes
+  lo_el_leave_req->get_static_attributes(
+    IMPORTING
+      static_attributes = ls_leave_req ).
+************************************************************************
+
+
+
+*  get element via lead selection
+   lo_el_context = wd_context->get_element( ).
+
+*  @TODO handle not set lead selection
+   IF lo_el_context IS INITIAL.
+   ENDIF.
+
+*  @TODO fill attribute
+  lv_vis_detail = '02'.
+
+*  set single attribute
+   lo_el_context->set_attribute(
+     name =  `VIS_DETAIL`
+     value = abap_true ).
+
+
+
+   lr_view_controller ?= wd_this->wd_get_api( ).
+
+   lr_view_controller->if_wd_view_controller~register_on_enter_for_f4( register_on_enter = abap_true ).
+
+
+  lo_componentcontroller =   wd_this->get_componentcontroller_ctr( ).
+  lv_return = lo_componentcontroller->check_admin( ).
+  lo_nd_input = wd_context->get_child_node( name = wd_this->wdctx_input ).
+  lo_el_input = lo_nd_input->get_element( ).
+
+  IF lv_return = abap_true.
+    lv_visible_input = abap_true.
+  ELSE.
+    lv_visible_input = abap_false.
+  ENDIF.
+
+  lo_el_input->set_attribute( name =  `VISIBLE_INPUT` value = lv_visible_input ).
+
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_dateinput TYPE wd_this->element_context-dateinput.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_dateinput = sy-datum.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `DATEINPUT`
+    value = lv_dateinput ).
+
+******
+
+*   DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+*   DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+*   DATA ls_leave_req TYPE wd_this->element_leave_req.
+   DATA lv_begda TYPE wd_this->element_leave_req-begda.
+
+*  navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+*   lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+   lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+*  @TODO handle non existant child
+*  IF lo_nd_leave_req IS INITIAL.
+*  ENDIF.
+
+*  get element via lead selection
+   lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+*  alternative access  via index
+*  lo_el_leave_req = lo_nd_leave_req->get_element( index = 1 ).
+
+*  @TODO handle not set lead selection
+   IF lo_el_leave_req IS INITIAL.
+   ENDIF.
+
+*  @TODO fill attribute
+  lv_begda = sy-datum.
+
+*  set single attribute
+   lo_el_leave_req->set_attribute(
+     name =  `BEGDA`
+     value = lv_begda ).
+
+
+
+******
+
+    DATA lo_el_contextaf TYPE REF TO if_wd_context_element.
+    DATA ls_contextaf TYPE wd_this->element_context.
+    DATA lv_dateafter TYPE wd_this->element_context-dateafter.
+
+*   get element via lead selection
+    lo_el_contextaf = wd_context->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_contextaf IS INITIAL.
+    ENDIF.
+
+*   @TODO fill attribute
+   lv_dateafter = sy-datum ."+ 90.
+
+*   set single attribute
+    lo_el_contextaf->set_attribute(
+      name =  `DATEAFTER`
+      value = lv_dateafter ).
+
+**********
+*  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+*  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+*  DATA ls_leave_req TYPE wd_this->element_leave_req.
+  DATA lv_endda TYPE wd_this->element_leave_req-endda.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+*  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+*  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_endda = sy-datum.
+
+* set single attribute
+  lo_el_leave_req->set_attribute(
+    name =  `ENDDA`
+    value = lv_endda ).
+
+
+**********
+*  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+*
+*  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+*  DATA ls_leave_req TYPE wd_this->element_leave_req.
+  DATA lv_pernr TYPE wd_this->element_leave_req-pernr.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+DATA : ld_usrid TYPE P0105-USRID,
+       ld_pernr TYPE P0105-PERNR.
+ld_usrid = sy-uname.
+    CALL FUNCTION 'RP_GET_PERNR_FROM_USERID'
+      EXPORTING
+        begda     = sy-datum
+        endda     = sy-datum
+        usrid     = ld_usrid
+        usrty     = '0001'
+      IMPORTING
+        usr_pernr = ld_pernr
+      EXCEPTIONS
+        retcd     = 1
+        OTHERS    = 2.
+ lv_pernr = ld_pernr.
+
+* IF ld_pernr IS INITIAL AND sy-uname eq 'KHCM02'.
+*   lv_pernr = ld_pernr = '00000035'.
+* ENDIF.
+
+* set single attribute
+  lo_el_leave_req->set_attribute(
+    name =  `PERNR`
+    value = lv_pernr ).
+
+
+ me->trans_date(
+   CHANGING
+     pa_startdate = sy-datum
+     pa_dateinput = sy-datum
+ ).
+
+DATA :
+       lt_ztb   TYPE TABLE OF ztb_guidmap,
+       lx_ztb   TYPE ztb_guidmap,
+       lt_ztb26   TYPE TABLE OF ztb_guidmap,
+       lx_ztb26   TYPE ztb_guidmap,
+
+
+       lt_p2001 TYPE TABLE OF ztb_p2001,
+       lx_p2001 TYPE ztb_p2001,
+       lt_p2002 TYPE TABLE OF ztb_p2002,
+       lx_p2002 TYPE ztb_p2002
+
+       .
+SELECT * FROM ztb_p2001 INTO CORRESPONDING FIELDS OF TABLE lt_p2001
+  WHERE pernr = ld_pernr.
+SELECT * FROM ztb_guidmap INTO CORRESPONDING FIELDS OF TABLE lt_ztb
+  FOR ALL ENTRIES IN lt_p2001
+  WHERE guid = lt_p2001-guid.
+IF sy-subrc eq 0.
+
+********************************************************************
+  TYPES : BEGIN OF ty_doc,
+        guid TYPE guid_32,
+        instid TYPE SIBFBORIID,
+        wi_id TYPE SWW_WIID,
+        END OF ty_doc.
+  DATA :
+      lt_doc TYPE TABLE OF ty_doc,
+      lx_doc TYPE ty_doc,
+      lt_obj TYPE TABLE OF sww_wi2obj,
+      lt_objcp TYPE TABLE OF sww_wi2obj,
+      lx_obj TYPE sww_wi2obj.
+
+    LOOP AT lt_ztb INTO lx_ztb.
+    lx_doc-guid = lx_doc-instid = lx_ztb-guid.
+    APPEND lx_doc to lt_doc.
+  ENDLOOP.
+SELECT * FROM sww_wi2obj INTO CORRESPONDING FIELDS OF TABLE lt_obj
+  FOR ALL ENTRIES IN lt_doc
+  WHERE
+  instid = lt_doc-instid.
+********************************************************************
+
+  loop at lt_p2001 INTO lx_p2001.
+*SELECT SINGLE ename FROM pa0001 INTO lx_data-ename WHERE pernr eq ld_pernr AND endda eq '99991231'.
+
+READ TABLE lt_ztb INTO lx_ztb WITH KEY guid = lx_p2001-guid.
+
+ DATA : lv_appernr TYPE pernr_D.
+ SELECT SINGLE pernr FROM pa0105 INTO lv_appernr WHERE usrid = lx_ztb-approver1 AND endda eq '99991231'.
+ SELECT SINGLE ename FROM pa0001 INTO lx_data-ename WHERE pernr eq lv_appernr AND endda eq '99991231'.
+* lx_data-ename = lx_ztb-approver1.
+* lx_data-guid     = lx_ztb-guid.
+ lx_data-pernr     = ld_pernr.
+lx_data-awart     = lx_p2001-awart.
+
+ lx_data-guid     = lx_ztb-guid.
+SELECT SINGLE ATEXT FROM t554t INTO lx_data-atext WHERE sprsl EQ 'En' AND moabw EQ '90' AND awart = lx_p2001-awart.
+
+lx_data-begda     = lx_p2001-begda.
+lx_data-endda     = lx_p2001-endda.
+lx_data-status    = lx_p2001-status_item.
+lx_data-abstd     = lx_p2001-stdaz.
+lx_data-abwtg     = lx_p2001-abwtg.
+
+lx_data-beguz     = lx_p2001-beguz.
+lx_data-enduz     = lx_p2001-enduz.
+
+lx_data-apprv     = lx_ztb-approver1.
+lx_data-note      = ''.
+lx_data-apprv2    = lx_ztb-approver2.
+lx_data-textawart = lx_data-atext.
+
+lt_objcp[] = lt_obj[].
+delete lt_objcp WHERE instid(32) ne lx_ztb-guid.
+SORT lt_objcp ASCENDING by wi_id.
+READ TABLE lt_objcp INTO lx_obj INDEX 1.
+lx_data-guid_doc = lx_obj-wi_id.
+
+APPEND lx_data to it_data.
+ENDLOOP.
+
+
+**************************************************************************
+*** Acquire 2002 Data
+SELECT * FROM ztb_p2002 INTO CORRESPONDING FIELDS OF TABLE lt_p2002 WHERE pernr = ld_pernr.
+IF lt_p2002 IS NOT INITIAL.
+SELECT * FROM ztb_guidmap INTO CORRESPONDING FIELDS OF TABLE lt_ztb26
+  FOR ALL ENTRIES IN lt_p2002
+  WHERE guid = lt_p2002-guid.
+
+LOOP AT lt_ztb26 INTO lx_ztb.
+    lx_doc-guid = lx_doc-instid = lx_ztb-guid.
+    APPEND lx_doc to lt_doc.
+  ENDLOOP.
+REFRESH lt_obj.
+SELECT * FROM sww_wi2obj INTO CORRESPONDING FIELDS OF TABLE lt_obj
+  FOR ALL ENTRIES IN lt_doc
+  WHERE
+  instid = lt_doc-instid.
+
+
+  loop at lt_p2002 INTO lx_p2002.
+CLEAR lx_ztb.
+READ TABLE lt_ztb26 INTO lx_ztb WITH KEY guid = lx_p2002-guid.
+
+* DATA : lv_appernr TYPE pernr_D.
+ SELECT SINGLE pernr FROM pa0105 INTO lv_appernr WHERE usrid = lx_ztb-approver1 AND endda eq '99991231'.
+ SELECT SINGLE ename FROM pa0001 INTO lx_data-ename WHERE pernr eq lv_appernr AND endda eq '99991231'.
+ lx_data-pernr     = ld_pernr.
+lx_data-awart     = lx_p2002-awart.
+
+ lx_data-guid     = lx_ztb-guid.
+SELECT SINGLE ATEXT FROM t554t INTO lx_data-atext WHERE sprsl EQ 'En' AND moabw EQ '90' AND awart = lx_p2001-awart.
+
+lx_data-begda     = lx_p2002-begda.
+lx_data-endda     = lx_p2002-endda.
+lx_data-status    = lx_p2002-status_item.
+lx_data-abstd     = lx_p2002-stdaz.
+lx_data-abwtg     = lx_p2002-abwtg.
+
+lx_data-beguz     = lx_p2002-beguz.
+lx_data-enduz     = lx_p2002-enduz.
+
+lx_data-apprv     = lx_ztb-approver1.
+lx_data-note      = ''.
+lx_data-apprv2    = lx_ztb-approver2.
+lx_data-textawart = lx_data-atext.
+
+lt_objcp[] = lt_obj[].
+delete lt_objcp WHERE instid(32) ne lx_ztb-guid.
+SORT lt_objcp ASCENDING by wi_id.
+READ TABLE lt_objcp INTO lx_obj INDEX 1.
+lx_data-guid_doc = lx_obj-wi_id.
+APPEND lx_data to it_data.
+ENDLOOP.
+
+ENDIF.
+
+**************************************************************************
+
+
+
+
+
+
+
+context_node = wd_context->get_child_node( name = 'LEAVE_REQ').
+*    context_node->bind_table( it_data ).
+
+
+  DATA lo_nd_table_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_table_req TYPE REF TO if_wd_context_element.
+  DATA ls_table_req TYPE wd_this->element_table_req.
+
+* navigate from <CONTEXT> to <TABLE_REQ> via lead selection
+  lo_nd_table_req = wd_context->get_child_node( name = wd_this->wdctx_table_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_table_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_table_req = lo_nd_table_req->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_table_req IS INITIAL.
+  ENDIF.
+
+* @TODO fill static attributes
+* ls_table_req = xxx->get_yyy( ).
+  SORT it_data DESCENDING by guid_doc.
+
+* set all declared attributes
+  lo_el_table_req->set_static_attributes(
+     static_attributes = ls_table_req ).
+
+*       context_node2 type ref to if_wd_context_node.
+  context_node2 = wd_context->get_child_node( name = 'TABLE_REQ').
+*  context_node = wd_context->get_child_node( name = 'LEAVE_REQ').
+  if it_data IS NOT INITIAL.
+  context_node2->bind_table( it_data ).
+  endif.
+*  context_node2->bind_table( it_data ).
+
+ENDIF.
+
+*  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+*
+*  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+*  DATA ls_leave_req TYPE wd_this->element_leave_req.
+  DATA lv_awart TYPE wd_this->element_leave_req-awart.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_awart = 'C000'.
+
+* set single attribute
+  lo_el_leave_req->set_attribute(
+    name =  `AWART`
+    value = lv_awart ).
+
+
+DATA : lx_t554s TYPE t554s.
+DATA : lx_t554t TYPE t554t.
+
+      SELECT SINGLE * FROM t554t INTO CORRESPONDING FIELDS OF   lx_t554t
+        WHERE sprsl EQ 'En' AND moabw EQ '90'
+          and awart = lv_awart.
+      SELECT SINGLE * FROM t554s INTO CORRESPONDING FIELDS OF  lx_t554s
+        WHERE
+        subty = lv_awart AND
+              endda = '99991231'.
+
+       lo_el_leave_req->set_attribute(
+    name =  `TEXTAWART`
+    value = lx_t554t-atext ).
+*
+**  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+**
+**  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+**  DATA ls_leave_req TYPE wd_this->element_leave_req.
+*
+** navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+*  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+*
+** @TODO handle non existant child
+** IF lo_nd_leave_req IS INITIAL.
+** ENDIF.
+*
+** get element via lead selection
+*  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+** @TODO handle not set lead selection
+*  IF lo_el_leave_req IS INITIAL.
+*  ENDIF.
+*
+** get all declared attributes
+*  lo_el_leave_req->get_static_attributes(
+*    IMPORTING
+*      static_attributes = ls_leave_req ).
+
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_save_butt TYPE wd_this->element_context-save_butt.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_save_butt = abap_false.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `SAVE_BUTT`
+    value = lv_save_butt ).
+ lo_el_context->set_attribute(
+    name =  `VISIBLE_NOTE`
+    value = abap_true ).
+
+ENDMETHOD.
