@@ -1,0 +1,202 @@
+WDEVENT	X CL_WD_CUSTOM_EVENT
+CONTEXT_ELEMENT	X IF_WD_CONTEXT_ELEMENT
+ID	STRING
+
+METHOD onactiondelete .
+
+*    me->refresh_tab2( ).
+  DATA lo_nd_note_del TYPE REF TO if_wd_context_node.
+  DATA lo_el_note_del TYPE REF TO if_wd_context_element.
+  DATA ls_note_del TYPE wd_this->element_note_del.
+  DATA lv_visible TYPE wd_this->element_note_del-visible.
+
+  DATA lv_index TYPE i.
+  DATA lo_nd_list_mcu TYPE REF TO if_wd_context_node.
+  DATA lt_list_mcu TYPE wd_this->elements_list_mcu.
+  DATA lx_list_mcu LIKE LINE OF lt_list_mcu.
+
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+  DATA lt_leave_req TYPE wd_this->elements_leave_req.
+  DATA lx_leave_req LIKE LINE OF lt_leave_req.
+
+  DATA l_message_manager    TYPE REF TO if_wd_message_manager.
+  DATA l_current_controller TYPE REF TO if_wd_controller.
+  DATA lv_subty TYPE p0001-subty.
+  DATA lx_p9000 TYPE P9000.
+  DATA lx_ret22 TYPE bapireturn1.
+  DATA lv_operation TYPE PSPAR-ACTIO.
+  DATA lx_p2001 TYPE P2001.
+  DATA ls_zthcm_leavereq TYPE zthcm_leavereq.
+  DATA : lx_z2001 TYPE ztb_p2001.
+
+  DATA: L_CMP_API TYPE REF TO IF_WD_COMPONENT,
+        L_WINDOW_MANAGER TYPE REF TO IF_WD_WINDOW_MANAGER,
+        L_POPUP TYPE REF TO IF_WD_WINDOW,
+        L_TEXT TYPE STRING_TABLE,
+        L_API TYPE REF TO IF_WD_VIEW_CONTROLLER.
+*  DATA lo_nd_note_del TYPE REF TO if_wd_context_node.
+*  DATA lo_el_note_del TYPE REF TO if_wd_context_element.
+*  DATA ls_note_del TYPE wd_this->element_note_del.
+*  DATA lv_visible TYPE wd_this->element_note_del-visible.
+*
+*  DATA lv_index TYPE i.
+*  DATA lo_nd_list_mcu TYPE REF TO if_wd_context_node.
+*  DATA lt_list_mcu TYPE wd_this->elements_list_mcu.
+*  DATA lx_list_mcu LIKE LINE OF lt_list_mcu.
+*
+*  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+*  DATA lt_leave_req TYPE wd_this->elements_leave_req.
+*  DATA lx_leave_req LIKE LINE OF lt_leave_req.
+*
+*  DATA l_message_manager    TYPE REF TO if_wd_message_manager.
+*  DATA l_current_controller TYPE REF TO if_wd_controller.
+*  DATA lv_subty TYPE p0001-subty.
+*  DATA lx_p9000 TYPE P9000.
+*  DATA lx_ret22 TYPE bapireturn1.
+*  DATA lv_operation TYPE PSPAR-ACTIO.
+*  DATA lx_p2001 TYPE P2001.
+*  DATA ls_zthcm_leavereq TYPE zthcm_leavereq.
+
+  l_current_controller ?= wd_this->wd_get_api( ).
+  l_message_manager = l_current_controller->get_message_manager( ).
+
+*-Check work item
+  lv_subty = me->get_subty( ).
+  IF me->check_workitem( message_manager = l_message_manager
+                                   subty = lv_subty ) = 'X'.
+    EXIT.
+  ENDIF.
+*
+
+  lo_nd_note_del = wd_context->get_child_node( name = wd_this->wdctx_note_del ).
+  lo_el_note_del = lo_nd_note_del->get_element( ).
+
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+  lo_nd_leave_req->get_static_attributes_table( IMPORTING table = lt_leave_req ).
+  lv_index = lo_nd_leave_req->get_lead_selection_index( ).
+
+  READ TABLE lt_leave_req INTO lx_leave_req INDEX lv_index.
+
+*  MOVE-CORRESPONDING lx_leave_req TO lx_p2001.
+*
+*  SELECT SINGLE * FROM zthcm_leavereq INTO ls_zthcm_leavereq WHERE pernr = lx_leave_req-pernr.
+*
+*  MOVE-CORRESPONDING lx_leave_req TO ls_zthcm_leavereq.
+*
+*
+*  IF lv_index GT 0.
+*    lv_visible = 'X'.
+*    lo_el_note_del->set_attribute( name =  `VISIBLE` value = lv_visible ).
+*    DELETE zthcm_leavereq FROM ls_zthcm_leavereq.
+*  ELSE.
+*
+*    l_message_manager->report_t100_message(
+*       EXPORTING
+*         msgid = 'AQ'
+*         msgno = '003'
+*         msgty = 'E'
+*         p1    = 'Please select the data'
+*         p2    = ''
+*         p3    = ''
+*         p4    = ''
+*         view  = 'MAIN'
+*         show_as_popup = 'X' ).
+*    RETURN.
+*
+*  ENDIF.
+
+
+  MOVE-CORRESPONDING lx_leave_req TO lx_p2001.
+  DATA : lx_ztb TYPE ztb_guidmap.
+  SELECT SINGLE * FROM ztb_guidmap INTO lx_ztb WHERE guid = lx_leave_req-guid.
+  SELECT SINGLE * FROM ztb_p2001 INTO lx_z2001 WHERE guid = lx_leave_req-guid.
+
+    DATA lo_nd_guid TYPE REF TO if_wd_context_node.
+
+    DATA lo_el_guid TYPE REF TO if_wd_context_element.
+    DATA ls_guid TYPE wd_this->element_guid.
+    DATA lv_ld_guid TYPE wd_this->element_guid-ld_guid.
+
+*   navigate from <CONTEXT> to <GUID> via lead selection
+    lo_nd_guid = wd_context->get_child_node( name = wd_this->wdctx_guid ).
+
+*   @TODO handle non existant child
+*   IF lo_nd_guid IS INITIAL.
+*   ENDIF.
+
+*   get element via lead selection
+    lo_el_guid = lo_nd_guid->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_guid IS INITIAL.
+    ENDIF.
+
+*   @TODO fill attribute
+   lv_ld_guid = lx_leave_req-guid.
+**   lv_ld_guid = 1.
+
+*   set single attribute
+    lo_el_guid->set_attribute(
+      name =  `LD_GUID`
+      value = lv_ld_guid ).
+
+
+
+  IF lv_index GT 0.
+    lv_visible = 'X'.
+    lo_el_note_del->set_attribute( name =  `VISIBLE` value = lv_visible ).
+
+**********************************************************************
+L_CMP_API = WD_COMP_CONTROLLER->WD_GET_API( ).
+L_WINDOW_MANAGER = L_CMP_API->GET_WINDOW_MANAGER( ).
+
+*INSERT `Estimation Variant already exist` INTO TABLE L_TEXT.
+INSERT `Are You Sure to Delete this Request ?` INTO TABLE L_TEXT.
+
+L_POPUP = L_WINDOW_MANAGER->CREATE_POPUP_TO_CONFIRM(
+TEXT = L_TEXT
+BUTTON_KIND = IF_WD_WINDOW=>co_buttons_yesno
+*BUTTON_KIND = IF_WD_WINDOW=>CO_BUTTONS_YESNOCANCEL
+MESSAGE_TYPE = IF_WD_WINDOW=>CO_MSG_TYPE_QUESTION
+WINDOW_TITLE = 'Confirmation'
+WINDOW_POSITION = IF_WD_WINDOW=>CO_CENTER ). "#EC *
+
+DATA: l_str TYPE string.
+move lx_leave_req-guid to l_str.
+
+L_API = WD_THIS->WD_GET_API( ).
+L_POPUP->SUBSCRIBE_TO_BUTTON_EVENT(
+BUTTON = IF_WD_WINDOW=>CO_BUTTON_YES
+tooltip = l_str
+ACTION_NAME = 'YES'
+ACTION_VIEW = L_API
+IS_DEFAULT_BUTTON = ABAP_TRUE
+ ).
+
+L_POPUP->SUBSCRIBE_TO_BUTTON_EVENT(
+BUTTON = IF_WD_WINDOW=>CO_BUTTON_NO
+ACTION_NAME = 'NO'
+ACTION_VIEW = L_API
+IS_DEFAULT_BUTTON = ABAP_FALSE ).
+
+L_POPUP->OPEN( ).
+
+
+  ELSE.
+
+    l_message_manager->report_t100_message(
+       EXPORTING
+         msgid = 'AQ'
+         msgno = '003'
+         msgty = 'E'
+         p1    = 'Please select the data'
+         p2    = ''
+         p3    = ''
+         p4    = ''
+         view  = 'MAIN_COPY'
+         show_as_popup = 'X' ).
+    RETURN.
+
+  ENDIF.
+
+ENDMETHOD.
