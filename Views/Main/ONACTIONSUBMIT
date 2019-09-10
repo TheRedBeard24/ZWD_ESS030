@@ -1,0 +1,481 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+METHOD onactionsubmit .
+
+  DATA:  loe_clicked_element             TYPE REF TO if_wd_context_element,
+         lon_attach                      TYPE REF TO if_wd_context_node,
+         lon_context TYPE REF TO cl_wdr_context_element,
+         ls_p0028    TYPE p0028.
+  DATA: lv_index TYPE i.
+  DATA lo_nd_list_mcu TYPE REF TO if_wd_context_node.
+  DATA lt_list_mcu TYPE wd_this->elements_list_mcu.
+  DATA lx_list_mcu LIKE LINE OF lt_list_mcu.
+  DATA: lx_p0028 TYPE p0028,
+        lx_p0028_old TYPE p0028,
+        lx_ret22 TYPE bapiret1,
+        lv_operation TYPE pspar-actio.
+  DATA ld_guid TYPE guid_32.
+  DATA  l_message_manager    TYPE REF TO if_wd_message_manager.
+  DATA  l_current_controller TYPE REF TO if_wd_controller.
+*  l_current_controller ?= wd_this->wd_get_api( ).
+*  l_message_manager = l_current_controller->get_message_manager( ).
+
+
+  DATA lo_nd_action TYPE REF TO if_wd_context_node.
+  DATA lo_el_action TYPE REF TO if_wd_context_element.
+  DATA ls_action TYPE wd_this->element_action.
+  DATA lv_id TYPE wd_this->element_action-id.
+  DATA ld_wiid TYPE sibfboriid.
+  DATA text2 TYPE c LENGTH 50.
+  DATA text3 TYPE c LENGTH 50.
+  DATA ld_workitemid TYPE swr_struct-workitemid.
+*  DATA ld_guid TYPE guid_32.
+  DATA :   lx_guidmap TYPE ztb_guidmap.
+  DATA : flag ,
+         lv_subrc TYPE sy-subrc
+         "lv_mess  TYPE char255
+         .
+
+  DATA : "WORKITEM_ID  LIKE  SWR_STRUCT-WORKITEMID,
+     simple_container TYPE TABLE OF  swr_cont,
+     xsimple_container TYPE swr_cont.
+  DATA : ls_ztb TYPE ztb_p2001,
+         lt_ztb TYPE TABLE OF ztb_p2001,
+         ls_2002 TYPE ztb_p2002,
+         lt_2002 TYPE TABLE OF ztb_p2002.
+  DATA : e_tage TYPE c LENGTH 4.
+  DATA : lx_cont TYPE swr_cont.
+  DATA : lt_cont TYPE TABLE OF swr_cont.
+  DATA : lv_mess TYPE char255,
+         lt_sww TYPE TABLE OF sww_wi2obj,
+         lt_SWWbcp TYPE TABLE OF sww_wi2obj,
+         lx_swwwihead TYPE  swwwihead,
+         lx_sww TYPE sww_wi2obj,
+         lx_SWWbcp TYPE sww_wi2obj,
+         lv_infty  TYPE char4.
+  DATA ls_guidnote TYPE ztb_guidnote.
+
+  CLEAR flag.
+
+
+************************
+  DATA  lo_nd_guid TYPE REF TO if_wd_context_node.
+  DATA  lo_el_guid TYPE REF TO if_wd_context_element.
+  DATA  ls_guid TYPE wd_this->element_guid.
+
+
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+  DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+  DATA : objkey TYPE swr_struct-object_key.
+  DATA : lt_msglines TYPE STANDARD TABLE OF swr_messag,
+         lt_msgstruc TYPE STANDARD TABLE OF swr_mstruc,
+         wa_msglines TYPE swr_messag,
+         wa_msgstruc TYPE swr_mstruc.
+
+
+  lo_nd_guid = wd_context->get_child_node( name = wd_this->wdctx_guid ).
+  lo_el_guid = lo_nd_guid->get_element( ).
+  lo_el_guid->get_static_attributes( IMPORTING
+     static_attributes = ls_guid ).
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* get all declared attributes
+  lo_el_leave_req->get_static_attributes(
+    IMPORTING
+      static_attributes = ls_leave_req ).
+
+
+************************
+
+  l_current_controller ?= wd_this->wd_get_api( ).
+  l_message_manager = l_current_controller->get_message_manager( ).
+
+  lo_nd_list_mcu = wd_context->get_child_node( name = wd_this->wdctx_list_mcu ).
+  lo_nd_list_mcu->get_static_attributes_table( IMPORTING table = lt_list_mcu ).
+  lv_index = lo_nd_list_mcu->get_lead_selection_index( ).
+
+  lx_p0028-pernr = ls_leave_req-pernr.
+*  lx_p0028-infty = '2001'.
+  lx_p0028-subty = ls_leave_req-awart.
+  lx_p0028-begda = ls_leave_req-begda.
+  lx_p0028-endda = ls_leave_req-endda.
+*  lx_p0028-seqnr = lx_list_mcu-seqnr.
+
+
+  IF lx_p0028-subty IS INITIAL.
+    flag = '4'.
+    lx_ret22-message_v1 = 'Please Input Type of Leave'.
+    l_message_manager->report_message(
+      EXPORTING
+        message_text              =  lx_ret22-message_v1
+        show_as_popup             = 'X'
+    ).
+  ENDIF.
+  IF ls_leave_req-note IS INITIAL.
+    lx_ret22-message_v1 = 'Please Input Notes'.
+    flag = '4'.
+    l_message_manager->report_message(
+      EXPORTING
+        message_text              =  lx_ret22-message_v1
+        show_as_popup             = 'X'
+    ).
+  ENDIF.
+
+  DATA lo_nd_attachment TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_attachment TYPE REF TO if_wd_context_element.
+  DATA ls_attachment TYPE wd_this->element_attachment.
+  DATA lv_filename TYPE wd_this->element_attachment-filename.
+
+* navigate from <CONTEXT> to <ATTACHMENT> via lead selection
+  lo_nd_attachment = wd_context->get_child_node( name = wd_this->wdctx_attachment ).
+
+* @TODO handle non existant child
+* IF lo_nd_attachment IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_attachment = lo_nd_attachment->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_attachment IS INITIAL.
+  ENDIF.
+
+* get single attribute
+  lo_el_attachment->get_attribute(
+    EXPORTING
+      name =  `FILENAME`
+    IMPORTING
+      value = lv_filename ).
+
+  IF lv_filename IS INITIAL.
+*    lx_ret22-message_v1 = 'Please Upload File'.
+*    flag = '4'.
+*    l_message_manager->report_message(
+*      EXPORTING
+*        message_text              =  lx_ret22-message_v1
+*        show_as_popup             = 'X'
+*    ).
+  ENDIF.
+
+  CHECK flag IS INITIAL.
+*************************************************************************
+
+  me->get_simulate(
+    IMPORTING
+      subrc =  lv_subrc
+      mess  =  lv_mess
+      infty =  lv_infty
+  ).
+  IF lv_subrc EQ 0.
+  ELSE.
+
+    l_message_manager->report_message(
+  EXPORTING
+    message_text              =  lv_mess
+    show_as_popup             = 'X'
+).
+    EXIT.
+  ENDIF.
+
+*************************************************************************
+  DATA:
+   return_code      TYPE  sy-subrc              ,
+   workitem_id      TYPE  swr_struct-workitemid ,
+   new_status       TYPE  swr_wistat            ,
+
+   input_container  TYPE TABLE OF swr_cont              ,
+   message_lines    TYPE TABLE OF swr_messag            ,
+   message_struct   TYPE TABLE OF swr_mstruc            ,
+   agents           TYPE TABLE OF swragent              ,
+   xagents           TYPE   swragent        .
+
+
+
+  xsimple_container-element = 'TGLSTARCUT'.
+  xsimple_container-value = ls_leave_req-begda.
+  APPEND  xsimple_container  TO input_container.
+  CLEAR xsimple_container.
+
+  xsimple_container-element = 'TGLENDCUT'.
+  xsimple_container-value = ls_leave_req-endda.
+  APPEND  xsimple_container  TO input_container.
+  CLEAR xsimple_container.
+
+  IF ls_guid IS INITIAL .
+    CALL FUNCTION 'GUID_CREATE'
+      IMPORTING
+        ev_guid_32 = ls_guid-ld_guid.
+  ENDIF.
+
+
+
+
+  CLEAR lx_guidmap.
+  SELECT SINGLE usrid FROM pa0105 INTO lx_guidmap-approver1 WHERE pernr = ls_leave_req-apprv(8) AND usrty = '0001' AND endda  = '99991231' .
+*  SELECT SINGLE usrid FROM pa0105 INTO lx_guidmap-approver2 WHERE pernr = ls_leave_req-apprv2(8)AND usrty = '0001'.
+  lx_guidmap-guid = ls_guid-ld_guid.
+  lx_guidmap-infty = lv_infty.
+  lx_guidmap-pernr = ls_leave_req-pernr.
+  lx_guidmap-itype = '17'.
+  lx_guidmap-aenam = sy-uname.
+  lx_guidmap-datum = sy-datum.
+  lx_guidmap-uzeit = sy-uzeit.
+  lx_guidmap-status_item = 'In Process'.
+
+  IF lx_guidmap-approver1 IS INITIAL.
+*      DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+*
+*      DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+*      DATA ls_leave_req TYPE wd_this->element_leave_req.
+      DATA lv_apprv1_txt TYPE wd_this->element_leave_req-apprv1_txt.
+
+*     navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+      lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+*     @TODO handle non existant child
+*     IF lo_nd_leave_req IS INITIAL.
+*     ENDIF.
+
+*     get element via lead selection
+      lo_el_leave_req = lo_nd_leave_req->get_element( ).
+*     @TODO handle not set lead selection
+      IF lo_el_leave_req IS INITIAL.
+      ENDIF.
+
+*     get single attribute
+      lo_el_leave_req->get_attribute(
+        EXPORTING
+          name =  `APPRV1_TXT`
+        IMPORTING
+          value = lv_apprv1_txt ).
+
+DATA : app1 TYPE pernr_D.
+app1 = lv_apprv1_txt(8).
+SELECT SINGLE usrid FROM pa0105 INTO lx_guidmap-approver1 WHERE endda = '99991231' AND pernr = app1 AND usrty = '0001'.
+ENDIF.
+
+*  lx_guidmap-approver1 = ls_leave_req-apprv.
+  INSERT ztb_guidmap FROM lx_guidmap.
+
+
+
+
+
+****************
+*    DATA lo_nd_attachment TYPE REF TO if_wd_context_node.
+*
+*    DATA lo_el_attachment TYPE REF TO if_wd_context_element.
+*    DATA ls_attachment TYPE wd_this->element_attachment.
+
+*   navigate from <CONTEXT> to <ATTACHMENT> via lead selection
+  lo_nd_attachment = wd_context->get_child_node( name = wd_this->wdctx_attachment ).
+
+*   @TODO handle non existant child
+*   IF lo_nd_attachment IS INITIAL.
+*   ENDIF.
+
+*   get element via lead selection
+  lo_el_attachment = lo_nd_attachment->get_element( ).
+*   @TODO handle not set lead selection
+  IF lo_el_attachment IS INITIAL.
+  ENDIF.
+
+*   get all declared attributes
+  lo_el_attachment->get_static_attributes(
+    IMPORTING
+      static_attributes =   ls_attachment ).
+
+
+****************
+  CASE lv_infty.
+    WHEN '2001'.
+
+      ls_ztb-guid              = ls_guid-ld_guid.
+      ls_ztb-subty              = ls_leave_req-awart.
+      ls_ztb-awart              = ls_leave_req-awart.
+      ls_ztb-version           = 'NEW'.
+      ls_ztb-operation         = 'CREATE'.
+      ls_ztb-aenam             = sy-uname.
+      ls_ztb-datum             = sy-datum.
+      ls_ztb-uzeit             = sy-uzeit.
+      ls_ztb-status_item       = lx_guidmap-status_item.
+      ls_ztb-pernr             = ls_leave_req-pernr.
+      ls_ztb-infty             = '2001'.
+      ls_ztb-subty             = ls_leave_req-abstd.
+      ls_ztb-begda             = ls_leave_req-begda.
+      ls_ztb-endda             = ls_leave_req-endda.
+      ls_ztb-zflnam            = ls_attachment-filename.
+      ls_ztb-zfiletype         = ls_attachment-filetype.
+      ls_ztb-zfladd            = 'ZFRTest'.
+      ls_ztb-beguz             = ls_leave_req-beguz.
+      ls_ztb-enduz             = ls_leave_req-enduz.
+
+**************************************************************************
+      me->get_quota(
+        EXPORTING
+          lx_p2001 =  ls_ztb
+        CHANGING
+          p_abwtg  = ls_ztb-abwtg
+          p_abrtg  = ls_ztb-abrtg
+      ).
+**************************************************************************
+      CALL FUNCTION 'DAYS_BETWEEN_TWO_DATES'
+        EXPORTING
+          i_datum_bis             = ls_ztb-begda
+          i_datum_von             = ls_ztb-endda
+*         I_KZ_EXCL_VON           = '0'
+*         I_KZ_INCL_BIS           = '0'
+*         I_KZ_ULT_BIS            = ' '
+*         I_KZ_ULT_VON            = ' '
+*         I_STGMETH               = '0'
+*         I_SZBMETH               = '1'
+        IMPORTING
+          e_tage                  = e_tage
+        EXCEPTIONS
+          days_method_not_defined = 1
+          OTHERS                  = 2.
+      IF e_tage LT 0.
+        e_tage = e_tage * -1.
+      ENDIF.
+      ls_ztb-abwtg = e_tage + 1.
+      ls_ztb-stdaz = ls_ztb-abwtg * 8.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+      INSERT ztb_p2001 FROM ls_ztb.
+
+    WHEN '2002'.
+      ls_2002-guid              = ls_guid-ld_guid.
+      ls_2002-subty              = ls_leave_req-awart.
+      ls_2002-awart              = ls_leave_req-awart.
+      ls_2002-version           = 'NEW'.
+      ls_2002-operation         = 'CREATE'.
+      ls_2002-aenam             = sy-uname.
+      ls_2002-datum             = sy-datum.
+      ls_2002-uzeit             = sy-uzeit.
+      ls_2002-status_item       = lx_guidmap-status_item.
+      ls_2002-pernr             = ls_leave_req-pernr.
+      ls_2002-infty             = '2002'.
+*  ls_ztb-subty             = ls_leave_req-abstd.
+      ls_2002-begda             = ls_leave_req-begda.
+      ls_2002-endda             = ls_leave_req-endda.
+*  ls_ztb-zflnam            = ls_attachment-filename.
+*  ls_ztb-zfiletype         = ls_attachment-filetype.
+*  ls_ztb-zfladd            = 'ZFRTest'.
+      ls_2002-beguz             = ls_leave_req-beguz.
+      ls_2002-enduz             = ls_leave_req-enduz.
+
+
+**************************************************************************
+      CLEAR ls_ztb.
+      ls_ztb-pernr  = ls_2002-pernr.
+      ls_ztb-awart  = ls_2002-awart.
+      ls_ztb-begda  = ls_2002-begda.
+      ls_ztb-endda  = ls_2002-endda.
+
+      me->get_quota(
+      EXPORTING
+        lx_p2001 =  ls_ztb
+      CHANGING
+        p_abwtg  = ls_2002-abwtg
+        p_abrtg  = ls_2002-abrtg
+    ).
+**************************************************************************
+      CALL FUNCTION 'DAYS_BETWEEN_TWO_DATES'
+        EXPORTING
+          i_datum_bis             = ls_2002-begda
+          i_datum_von             = ls_2002-endda
+*         I_KZ_EXCL_VON           = '0'
+*         I_KZ_INCL_BIS           = '0'
+*         I_KZ_ULT_BIS            = ' '
+*         I_KZ_ULT_VON            = ' '
+*         I_STGMETH               = '0'
+*         I_SZBMETH               = '1'
+        IMPORTING
+          e_tage                  = e_tage
+        EXCEPTIONS
+          days_method_not_defined = 1
+          OTHERS                  = 2.
+      IF e_tage LT 0.
+        e_tage = e_tage * -1.
+      ENDIF.
+      ls_2002-abwtg = e_tage + 1.
+      ls_2002-stdaz = ls_2002-abwtg * 8.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+
+
+
+      INSERT ztb_p2002 FROM ls_2002.
+    WHEN OTHERS.
+  ENDCASE.
+
+  objkey = ls_guid-ld_guid.
+
+
+  lx_cont-element = 'STATUS'.
+  lx_cont-value = 'CHECK'.
+*lx_cont-value = 'APPROVE'.
+  APPEND lx_cont TO lt_cont.
+
+*  CONCATENATE '00' objkey INTO objkey.
+
+  ls_guidnote-guid = ls_guid-ld_guid.
+  ls_guidnote-note = ls_leave_req-note.
+  ls_guidnote-usnt = sy-uname.
+  ls_guidnote-udat = sy-datum.
+  ls_guidnote-uzet = sy-uzeit.
+  ls_guidnote-cnam = wd_comp_controller->get_cname( ).
+  ls_guidnote-wiid = lx_sww-wi_id.
+  INSERT ztb_guidnote FROM ls_guidnote.
+*  COMMIT WORK AND WAIT.
+*ROLLBACK WORK.
+  CALL FUNCTION 'SAP_WAPI_CREATE_EVENT'" IN BACKGROUND TASK AS SEPARATE UNIT
+    EXPORTING
+      object_type     = 'ZBORLVRQST'
+*     object_type     = 'ZPERINFO'
+      object_key      = objkey
+      event           = 'Action'
+      commit_work     = ' '
+      event_language  = sy-langu
+      language        = sy-langu
+      user            = sy-uname
+    TABLES
+      input_container = lt_cont
+      message_lines   = lt_msglines
+      message_struct  = lt_msgstruc.
+
+  COMMIT WORK AND WAIT .
+  WAIT UP TO 2 SECONDS.
+
+
+  SELECT * FROM sww_wi2obj INTO CORRESPONDING FIELDS OF TABLE lt_sww WHERE instid = objkey.
+  SORT lt_sww ASCENDING BY wi_id.
+  READ TABLE lt_sww INTO lx_sww INDEX 1.
+
+  CONCATENATE 'Leave Request Is Succesfully Submitted Under Document ' lx_sww-wi_id INTO lv_mess SEPARATED BY space.
+*  CONCATENATE 'Leave Request Created Under Document ' lx_sww-wi_id INTO lv_mess SEPARATED BY SPACE.
+  l_message_manager->report_message(
+      EXPORTING
+        message_text              =  lv_mess
+        show_as_popup             = 'X'
+        message_type              = '0'
+    ).
+
+ENDMETHOD.
