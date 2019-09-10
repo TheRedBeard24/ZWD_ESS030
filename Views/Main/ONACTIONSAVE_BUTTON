@@ -1,0 +1,253 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+method ONACTIONSAVE_BUTTON .
+
+*  method ONACTIONBUTTON_SAVE .
+  DATA lv_mess TYPE char255.
+  DATA  l_message_manager    TYPE REF TO if_wd_message_manager.
+    DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+    DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+    DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+  DATA  l_current_controller TYPE REF TO if_wd_controller.
+  DATA : lx_p2001 TYPE ztb_p2001,
+         lx_p2002 TYPE ztb_p2002.
+  l_current_controller ?= wd_this->wd_get_api( ).
+*   navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+    lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+  l_message_manager = l_current_controller->get_message_manager( ).
+*   @TODO handle non existant child
+*   IF lo_nd_leave_req IS INITIAL.
+*   ENDIF.
+
+*   get element via lead selection
+    lo_el_leave_req = lo_nd_leave_req->get_element( ).
+*   @TODO handle not set lead selection
+    IF lo_el_leave_req IS INITIAL.
+    ENDIF.
+
+*   get all declared attributes
+    lo_el_leave_req->get_static_attributes(
+      IMPORTING
+        static_attributes = ls_leave_req ).
+
+DATA :
+      wi_id TYPE SWW_WIID,
+      subrc TYPE SUBRC.
+
+
+  DATA lo_el_context TYPE REF TO if_wd_context_element.
+  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_notes TYPE wd_this->element_context-notes.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* get single attribute
+  lo_el_context->get_attribute(
+    EXPORTING
+      name =  `NOTES`
+    IMPORTING
+      value = lv_notes ).
+
+
+
+CALL FUNCTION 'ZHR_LEAVERQ_GETWORKITEM'
+
+  EXPORTING
+    guid          = ls_leave_req-guid
+  IMPORTING
+    WI_ID         = wi_id
+    SUBRC         = subrc
+          .
+IF  subrc ne 0.
+  CONCATENATE 'data' 'not found' INTO lv_mess SEPARATED BY SPACE.
+  l_message_manager->report_message(
+      EXPORTING
+        message_text              =  lv_mess
+        show_as_popup             = 'X'
+        message_type              = '0'
+    ).
+  RETURN.
+ENDIF.
+
+CALL FUNCTION 'ZHR_LEAVERQ_COMPLETINGWORKITEM'
+  EXPORTING
+    workitem_id       = wi_id
+  IMPORTING
+    SUBRC             = subrc
+          .
+IF  subrc ne 0.
+  CONCATENATE 'data' 'not found' INTO lv_mess SEPARATED BY SPACE.
+  l_message_manager->report_message(
+      EXPORTING
+        message_text              =  lv_mess
+        show_as_popup             = 'X'
+        message_type              = '0'
+    ).
+  RETURN.
+ENDIF.
+DATA  : v_guid TYPE guid_32.
+
+CHECK ls_leave_req-status(7) eq 'Approve' or ls_leave_req-status(10) eq 'In Process' .
+
+
+*****************read Guid Created From Attachment**************************************
+  DATA lo_nd_guid TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_guid TYPE REF TO if_wd_context_element.
+  DATA ls_guid TYPE wd_this->element_guid.
+  DATA lv_ld_guid TYPE wd_this->element_guid-ld_guid.
+
+* navigate from <CONTEXT> to <GUID> via lead selection
+  lo_nd_guid = wd_context->get_child_node( name = wd_this->wdctx_guid ).
+
+* @TODO handle non existant child
+* IF lo_nd_guid IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_guid = lo_nd_guid->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_guid IS INITIAL.
+  ENDIF.
+
+* get single attribute
+  lo_el_guid->get_attribute(
+    EXPORTING
+      name =  `LD_GUID`
+    IMPORTING
+      value = lv_ld_guid ).
+
+
+****************************************************************************************
+
+CALL FUNCTION 'ZHR_LEAVERQ_MAINTAINWORKITEM'
+  EXPORTING
+    old_guid       = ls_leave_req-guid
+    new_import_guid = lv_ld_guid
+ IMPORTING
+   NEW_GUID       = v_guid
+   subrc          = subrc    " Subroutines for return code
+   mess           = lv_mess    " Char255
+ .
+IF subrc ne 0 .
+   l_message_manager->report_message(
+      EXPORTING
+        message_text              =  lv_mess
+        show_as_popup             = 'X'
+        message_type              = '0'
+    ).
+  RETURN.
+ENDIF.
+
+*IF ls_leave_req-status(7) eq 'Approve'.
+
+
+DATA :lx_ztb TYPE ztb_guidmap.
+SELECT SINGLE * FROM ztb_guidmap INTO lx_ztb WHERE guid = ls_leave_req-guid.
+  CASE lx_ztb-infty.
+    WHEN '2001'.
+      SELECT SINGLE * FROM ztb_p2001 INTO lx_p2001 WHERE GUID = ls_leave_req-guid.
+    WHEN '2002'.
+      SELECT SINGLE * FROM ztb_p2002 INTO lx_p2002 WHERE GUID = ls_leave_req-guid.
+    WHEN OTHERS.
+  ENDCASE.
+*MOVE-CORRESPONDING ls_leave_req to lx_ztb.
+  CLEAR lv_mess.
+DATA : leave_req TYPE zst_hcm_leave_re.
+MOVE-CORRESPONDING ls_leave_req to leave_req.
+CALL FUNCTION 'ZHR_LEAVERQ_CREATENEWDATA' "IN BACKGROUND TASK AS SEPARATE UNIT
+  EXPORTING
+    leave_req       = leave_req
+    old_data       = lx_ztb
+    new_guid       = v_guid
+    infty          = lx_ztb-infty
+    new_note       = ls_leave_req-note
+    secretary      = space
+ IMPORTING
+   SUBRC          = subrc
+   MESS           = lv_mess
+ CHANGING
+   PA2001         = lx_p2001
+   PA2002         = lx_p2002
+          .
+IF subrc eq 0.
+  DATA : char TYPE char250.
+
+  IF ls_leave_req-status(7) eq 'Approve' .
+    char = 'Modified Aft. Approval'.
+    CALL FUNCTION 'ZHR_LEAVERQ_CHANGE_STATUS'
+      EXPORTING
+        guid          = ls_leave_req-guid
+        status        = char
+*     IMPORTING
+*       SUBRC         =
+*       MESS          =
+              .
+
+  elseif ls_leave_req-status(10) eq 'In Process' ..
+    char = 'Modified'.
+    CALL FUNCTION 'ZHR_LEAVERQ_CHANGE_STATUS'
+      EXPORTING
+        guid          = ls_leave_req-guid
+        status        = char
+*     IMPORTING
+*       SUBRC         =
+*       MESS          =
+              .
+  ENDIF.
+
+
+
+  DO .
+    IF lv_mess IS NOT INITIAL.
+      exit.
+    ENDIF.
+  ENDDO.
+  l_message_manager->report_message(
+      EXPORTING
+        message_text              =  lv_mess
+        show_as_popup             = 'X'
+        message_type              = '0'
+    ).
+  me->refresh_tab2( ).
+  RETURN.
+ENDIF.
+
+*ELSEIF ls_leave_req-status(10) eq 'In Process'..
+*
+*
+*ENDIF.
+me->REFRESH_TAB2( ).
+*me->fill_tabstrip4( ).
+
+*endmethod.
+
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_is_edit TYPE wd_this->element_context-is_edit.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_is_edit = abap_false.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `IS_EDIT`
+    value = lv_is_edit ).
+
+me->refresh_tab2( ).
+endmethod.
