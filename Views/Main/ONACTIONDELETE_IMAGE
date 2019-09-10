@@ -1,0 +1,78 @@
+WDEVENT X 	CL_WD_CUSTOM_EVENT
+
+method ONACTIONDELETE_IMAGE .
+
+  DATA : lr_node TYPE REF TO if_wd_context_node,
+         lr_element type ref to if_wd_context_element.
+    DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+    DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+    DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+*   navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+    lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+*   @TODO handle non existant child
+*   IF lo_nd_leave_req IS INITIAL.
+*   ENDIF.
+
+*   get element via lead selection
+    lo_el_leave_req = lo_nd_leave_req->get_element( ).
+*   @TODO handle not set lead selection
+    IF lo_el_leave_req IS INITIAL.
+    ENDIF.
+
+*   get all declared attributes
+    lo_el_leave_req->get_static_attributes(
+      IMPORTING
+        static_attributes = ls_leave_req ).
+
+DATA : lv_subrc TYPE subrc,
+       lv_mess  TYPE char50.
+
+CALL FUNCTION 'ZHR_LEAVERQ_DELETE_ATT'
+  EXPORTING
+    guid          = ls_leave_req-guid
+  IMPORTING
+    SUBRC         = lv_subrc
+    MESSAGE       = lv_mess
+          .
+CHECK lv_subrc IS INITIAL.
+
+  " Clear Attachment Node
+  lr_node = wd_context->get_child_node( name = wd_this->wdctx_attachment ).
+  lr_node->invalidate( ).
+
+  " Clear Others Node
+  lr_node = wd_context->get_child_node( name = wd_this->wdctx_element ).
+  lr_element = lr_node->get_element( ).
+  lr_element->set_attribute( name = 'VISIBLE_UPLOAD' value = abap_true ).
+  lr_element->set_attribute( name = 'VISIBLE_DELETE' value = abap_false ).
+  wd_this->delete_sign = abap_true.
+
+
+    DATA lo_el_context TYPE REF TO if_wd_context_element.
+    DATA ls_context TYPE wd_this->element_context.
+    DATA lv_pdf TYPE wd_this->element_context-pdf.
+
+*   get element via lead selection
+    lo_el_context = wd_context->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_context IS INITIAL.
+    ENDIF.
+
+*   @TODO fill attribute
+*   lv_pdf = 1.
+    CLEAR lv_pdf .
+*   set single attribute
+    lo_el_context->set_attribute(
+      name =  `PDF`
+      value = lv_pdf ).
+
+    lo_el_context->set_attribute(
+      name =  `PDFVIS`
+      value = abap_false ).
+
+
+endmethod.
