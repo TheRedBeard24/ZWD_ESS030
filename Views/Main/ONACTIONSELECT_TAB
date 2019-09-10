@@ -1,0 +1,562 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+method ONACTIONSELECT_TAB .
+
+*DATA: stru_tabstrip TYPE if_componentcontroller=>element_tabstrip.
+*  CLEAR stru_tabstrip.
+*
+*  MOVE 'TAB1' TO stru_tabstrip-tab.
+*
+*   node->bind_structure(
+*    new_item             = stru_tabstrip
+*    set_initial_elements = abap_true ).
+
+*  call METHOD wd_context->set_attribute
+*    EXPORTING
+**      index = USE_LEAD_SELECTION
+*      value =     " $REF$
+*      name  =     " $REF$
+*    .
+
+        DATA lv_tab TYPE wd_this->element_context-tab.
+        DATA lo_el_context TYPE REF TO if_wd_context_element.
+        DATA ls_context TYPE wd_this->element_context.
+        DATA lv_vis_detail TYPE wd_this->element_context-vis_detail.
+
+*       get element via lead selection
+        lo_el_context = wd_context->get_element( ).
+DATA :
+context_node2 type ref to if_wd_context_node.
+DATA lv1 TYPE char30.
+DATA lv2 TYPE char30.
+  DATA:
+    lt_events type WDR_EVENT_PARAMETER_LIST,
+    ls_events type WDR_EVENT_PARAMETER.
+  FIELD-SYMBOLS : <fs_value> TYPE any.
+  lt_events = wdevent->parameters.
+*        get element via lead selection
+        lo_el_context = wd_context->get_element( ).
+
+*       @TODO handle not set lead selection
+        IF lo_el_context IS INITIAL.
+        ENDIF.
+
+
+  READ TABLE lt_events INTO ls_events WITH KEY Name = 'TAB'.
+  IF sy-subrc eq 0.
+    assign ls_events-value->* to <fs_value>.
+    IF <fs_value> IS ASSIGNED AND <fs_value> eq 'TAB3'.
+
+*       @TODO fill attribute
+       lv_tab = 3.
+
+*       set single attribute
+        lo_el_context->set_attribute(
+          name =  `TAB`
+          value = lv_tab ).
+
+*       @TODO handle not set lead selection
+        IF lo_el_context IS INITIAL.
+        ENDIF.
+
+*       @TODO fill attribute
+*       lv_vis_detail = 1.
+
+*       set single attribute
+        lo_el_context->set_attribute(
+          name =  `VIS_DETAIL`
+          value = abap_false ).
+
+**********************************************************************
+**        begin collection
+ TYPES :  BEGIN OF zty_2006,
+          begda   type datum                              ,
+          endda   type datum                              ,
+          KTART   type p2006-KTART                        ,
+          ktext   type T556B-ktext                        ,
+          DESTA   type datum                              ,
+          DEEND   type datum                              ,
+          ANZHL   type p2006-ANZHL                        ,
+          KVERB   type p2006-KVERB                        ,
+          BEGUZ   type p2006-BEGUZ                        ,
+          enduz   type p2006-enduz                       ,
+          SPRTX   type RP50M-SPRTX                        ,
+          Balance   type p2006-ANZHL                        ,
+          Balance_txt   type char30                        ,
+          KVERB_txt   type char30                        ,
+          ANZHL_txt   type char30                        ,
+          END OF zty_2006.
+
+ DATA : lt_2006 TYPE TABLE OF zty_2006,
+        lt_inf TYPE TABLE OF p2006,
+        lx_inf TYPE p2006,
+        lx_2006 TYPE zty_2006,
+        lt_t556b TYPE TABLE OF t556b,
+        lx_t556b TYPE t556b.
+
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+  DATA ls_leave_req TYPE wd_this->element_leave_req.
+  DATA lv_pernr TYPE wd_this->element_leave_req-pernr.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* get single attribute
+  lo_el_leave_req->get_attribute(
+    EXPORTING
+      name =  `PERNR`
+    IMPORTING
+      value = lv_pernr ).
+
+CALL FUNCTION 'BUFFER_REFRESH_ALL'
+          .
+CALL FUNCTION 'RH_CLEAR_BUFFER'.
+  CALL FUNCTION 'STATUS_BUFFER_REFRESH'
+*   EXPORTING
+*     I_FREE        = ' '
+            .
+
+    CALL FUNCTION 'HR_READ_INFOTYPE'
+      EXPORTING
+*       TCLAS                 = 'A'
+        pernr                 = lv_pernr
+        infty                 = '2006'
+*       BEGDA                 = '18000101'
+*       ENDDA                 = '99991231'
+       BYPASS_BUFFER         = 'X'
+*       LEGACY_MODE           = ' '
+*     IMPORTING
+*       SUBRC                 =
+      TABLES
+        infty_tab             =  lt_inf
+*     EXCEPTIONS
+*       INFTY_NOT_FOUND       = 1
+*       OTHERS                = 2
+              .
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+IF lt_inf IS NOT INITIAL.
+  SELECT * FROM t556b INTO CORRESPONDING FIELDS OF TABLE
+    lt_t556b FOR ALL ENTRIES IN lt_inf
+    WHERE sprsl = 'EN' AND mopgk = '2' AND mozko = '90' AND
+    ktart = lt_inf-ktart.
+
+  LOOP AT lt_inf INTO lx_inf.
+  lx_2006-begda    =  lx_inf-begda .
+  lx_2006-endda    =  lx_inf-endda .
+  lx_2006-KTART    =  lx_inf-KTART .
+
+  READ TABLE lt_t556b INTO lx_t556b WITH  KEY ktart = lx_inf-ktart sprsl = 'EN' mopgk = 2 mozko = 90.
+  IF lx_inf-ktart IS NOT INITIAL.
+ lx_2006-ktext    =  lx_t556b-ktext .
+   ENDIF.
+
+  lx_2006-DESTA    =  lx_inf-DESTA .
+  lx_2006-DEEND    =  lx_inf-DEEND .
+  lx_2006-ANZHL    =  lx_inf-ANZHL .
+  lx_2006-KVERB    =  lx_inf-KVERB .
+  lx_2006-BEGUZ    =  lx_inf-BEGUZ .
+  lx_2006-enduz    =  lx_inf-enduz .
+
+  IF lx_2006-beguz IS INITIAL.lx_2006-beguz = '00:00:00'.  ENDIF.
+  IF lx_2006-enduz IS INITIAL.lx_2006-enduz = '00:00:00'.  ENDIF.
+*  lx_2006-SPRTX    =  lx_inf-SPRTX .
+  lx_2006-balance = lx_2006-ANZHL - lx_2006-KVERB.
+  MOVE lx_2006-balance to lx_2006-balance_txt.
+  SPLIT lx_2006-balance_txt AT '.' INTO lv1 lv2.
+  CONDENSE :lv1,
+          lx_2006-balance_txt.
+  lx_2006-balance_txt = lv1.
+
+  MOVE lx_2006-anzhl to lx_2006-anzhl_txt.
+  SPLIT lx_2006-anzhl_txt at '.' INTO lv1 lv2.
+  CONDENSE lv1.
+  lx_2006-anzhl_txt = lv1.
+
+  MOVE lx_2006-KVERB to lx_2006-KVERB_txt.
+  SPLIT lx_2006-KVERB_txt at '.' INTO lv1 lv2.
+  CONDENSE lv1.
+  lx_2006-KVERB_txt = lv1.
+
+  IF lx_2006-DESTA <= sy-datum AND lx_2006-deend >= sy-datum.
+  append lx_2006 to lt_2006.
+  ELSE.
+  CLEAR lx_2006.
+  ENDIF.
+
+  ENDLOOP.
+
+    DATA lo_nd_table_2006 TYPE REF TO if_wd_context_node.
+
+    DATA lo_el_table_2006 TYPE REF TO if_wd_context_element.
+    DATA ls_table_2006 TYPE wd_this->element_table_2006.
+
+*   navigate from <CONTEXT> to <TABLE_2006> via lead selection
+    lo_nd_table_2006 = wd_context->get_child_node( name = wd_this->wdctx_table_2006 ).
+
+*   @TODO handle non existant child
+*   IF lo_nd_table_2006 IS INITIAL.
+*   ENDIF.
+
+*   get element via lead selection
+    lo_el_table_2006 = lo_nd_table_2006->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_table_2006 IS INITIAL.
+    ENDIF.
+
+*   @TODO fill static attributes
+*   ls_table_2006 = xxx->get_yyy( ).
+
+*   set all declared attributes
+*    lo_el_table_2006->set_static_attributes(
+*       static_attributes = ls_table_2006 ).
+context_node2 = wd_context->get_child_node( name = 'TABLE_2006').
+*  context_node = wd_context->get_child_node( name = 'LEAVE_REQ').
+  if lt_2006 IS NOT INITIAL.
+  context_node2->bind_table( lt_2006 ).
+  endif.
+
+
+
+
+
+ENDIF.
+**********************************************************************
+    ELSEIF <fs_value> IS ASSIGNED AND <fs_value> eq 'TAB1'.
+        DATA lo_nd_action TYPE REF TO if_wd_context_node.
+
+        DATA lo_el_action TYPE REF TO if_wd_context_element.
+        DATA ls_action TYPE wd_this->element_action.
+        DATA lv_visible TYPE wd_this->element_action-visible.
+
+*       navigate from <CONTEXT> to <ACTION> via lead selection
+        lo_nd_action = wd_context->get_child_node( name = wd_this->wdctx_action ).
+
+*       @TODO handle non existant child
+*       IF lo_nd_action IS INITIAL.
+*       ENDIF.
+
+*       get element via lead selection
+        lo_el_action = lo_nd_action->get_element( ).
+
+*       @TODO handle not set lead selection
+        IF lo_el_action IS INITIAL.
+        ENDIF.
+
+*       @TODO fill attribute
+       lv_visible = abap_true.
+
+*       set single attribute
+        lo_el_action->set_attribute(
+          name =  `VISIBLE`
+          value = lv_visible ).
+
+************************************************
+
+*          DATA lo_el_context TYPE REF TO if_wd_context_element.
+*          DATA ls_context TYPE wd_this->element_context.
+          DATA lv_pdfvis TYPE wd_this->element_context-pdfvis.
+
+*         get element via lead selection
+          lo_el_context = wd_context->get_element( ).
+
+*         @TODO handle not set lead selection
+          IF lo_el_context IS INITIAL.
+          ENDIF.
+
+*         @TODO fill attribute
+         lv_pdfvis = abap_false.
+
+*         set single attribute
+          lo_el_context->set_attribute(
+            name =  `PDFVIS`
+            value = lv_pdfvis ).
+
+
+************************************************
+
+
+*   DATA lo_el_context TYPE REF TO if_wd_context_element.
+*   DATA ls_context TYPE wd_this->element_context.
+   DATA lv_save_butt TYPE wd_this->element_context-save_butt.
+
+*  get element via lead selection
+   lo_el_context = wd_context->get_element( ).
+
+*  @TODO handle not set lead selection
+   IF lo_el_context IS INITIAL.
+   ENDIF.
+
+*  @TODO fill attribute
+  lv_save_butt = abap_false.
+
+*  set single attribute
+   lo_el_context->set_attribute(
+     name =  `SAVE_BUTT`
+     value = lv_save_butt ).
+
+
+
+
+*        DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+*
+*        DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+*        DATA ls_leave_req TYPE wd_this->element_leave_req.
+        DATA lv_apprv TYPE wd_this->element_leave_req-apprv.
+
+*       navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+        lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+*       @TODO handle non existant child
+*       IF lo_nd_leave_req IS INITIAL.
+*       ENDIF.
+
+*       get element via lead selection
+        lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+*       @TODO handle not set lead selection
+        IF lo_el_leave_req IS INITIAL.
+        ENDIF.
+
+*       @TODO fill attribute
+*       lv_apprv = 1.
+
+*       set single attribute
+        lo_el_leave_req->set_attribute(
+          name =  `APPRV`
+          value = lv_apprv ).
+
+
+         me->trans_date(
+   CHANGING
+     pa_startdate = sy-datum
+     pa_dateinput = sy-datum
+ ).
+
+
+*       get element via lead selection
+        lo_el_context = wd_context->get_element( ).
+
+*       @TODO handle not set lead selection
+        IF lo_el_context IS INITIAL.
+        ENDIF.
+
+*       @TODO fill attribute
+       lv_tab = 1.
+
+*       set single attribute
+        lo_el_context->set_attribute(
+          name =  `TAB`
+          value = lv_tab ).
+
+
+*          DATA lo_el_context TYPE REF TO if_wd_context_element.
+*          DATA ls_context TYPE wd_this->element_context.
+*          DATA lv_vis_detail TYPE wd_this->element_context-vis_detail.
+
+*         get element via lead selection
+          lo_el_context = wd_context->get_element( ).
+
+*         @TODO handle not set lead selection
+          IF lo_el_context IS INITIAL.
+          ENDIF.
+
+*         @TODO fill attribute
+         lv_vis_detail = abap_true.
+
+*         set single attribute
+          lo_el_context->set_attribute(
+            name =  `VIS_DETAIL`
+            value = lv_vis_detail ).
+
+
+
+*          DATA lo_nd_l eave_req TYPE REF TO if_wd_context_node.
+*
+*          DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+*          DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+*         navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+          lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+*         @TODO handle non existant child
+*         IF lo_nd_leave_req IS INITIAL.
+*         ENDIF.
+
+*         get element via lead selection
+          lo_el_leave_req = lo_nd_leave_req->get_element( ).
+*         @TODO handle not set lead selection
+          IF lo_el_leave_req IS INITIAL.
+          ENDIF.
+
+*         get all declared attributes
+          lo_el_leave_req->get_static_attributes(
+            IMPORTING
+              static_attributes = ls_leave_req ).
+
+
+*  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+*
+*  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+*  DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* @TODO fill static attributes
+* ls_leave_req = xxx->get_yyy( ).
+CLEAR ls_leave_req-note.
+
+* set all declared attributes
+  lo_el_leave_req->set_static_attributes(
+     static_attributes = ls_leave_req ).
+
+
+
+
+
+*        DATA lo_el_context TYPE REF TO if_wd_context_element.
+*        DATA ls_context TYPE wd_this->element_context.
+        DATA lv_notes TYPE wd_this->element_context-notes.
+
+*       get element via lead selection
+        lo_el_context = wd_context->get_element( ).
+
+*       @TODO handle not set lead selection
+        IF lo_el_context IS INITIAL.
+        ENDIF.
+
+*       @TODO fill attribute
+*       lv_notes = 1.
+        CLEAR lv_notes.
+
+*       set single attribute
+        lo_el_context->set_attribute(
+          name =  `NOTES`
+          value = lv_notes ).
+
+        DATA lo_nd_attachment TYPE REF TO if_wd_context_node.
+
+        DATA lo_el_attachment TYPE REF TO if_wd_context_element.
+        DATA ls_attachment TYPE wd_this->element_attachment.
+
+*       navigate from <CONTEXT> to <ATTACHMENT> via lead selection
+        lo_nd_attachment = wd_context->get_child_node( name = wd_this->wdctx_attachment ).
+
+*       @TODO handle non existant child
+*       IF lo_nd_attachment IS INITIAL.
+*       ENDIF.
+
+*       get element via lead selection
+        lo_el_attachment = lo_nd_attachment->get_element( ).
+
+*       @TODO handle not set lead selection
+        IF lo_el_attachment IS INITIAL.
+        ENDIF.
+
+*       @TODO fill static attributes
+*       ls_attachment = xxx->get_yyy( ).
+        CLEAR ls_attachment.
+*       set all declared attributes
+        lo_el_attachment->set_static_attributes(
+           static_attributes = ls_attachment ).
+
+*          DATA lo_el_context TYPE REF TO if_wd_context_element.
+*          DATA ls_context TYPE wd_this->element_context.
+          DATA lv_pdf TYPE wd_this->element_context-pdf.
+
+*         get element via lead selection
+          lo_el_context = wd_context->get_element( ).
+
+*         @TODO handle not set lead selection
+          IF lo_el_context IS INITIAL.
+          ENDIF.
+
+*         @TODO fill attribute
+*         lv_pdf = 1.
+          CLEAR lv_pdf.
+*         set single attribute
+          lo_el_context->set_attribute(
+            name =  `PDF`
+            value = lv_pdf ).
+
+
+
+    ELSEIF <fs_value> IS ASSIGNED.
+      lo_el_context->set_attribute(
+          name =  `VIS_DETAIL`
+          value = abap_true ).
+
+    me->refresh_tab2( ).
+    IF <fs_value> eq 'TAB2'.
+*      get element via lead selection
+        lo_el_context = wd_context->get_element( ).
+
+*       @TODO handle not set lead selection
+        IF lo_el_context IS INITIAL.
+        ENDIF.
+
+*       @TODO fill attribute
+       lv_tab = 2.
+
+*       set single attribute
+        lo_el_context->set_attribute(
+          name =  `TAB`
+          value = lv_tab ).
+
+
+
+*          DATA lo_el_context TYPE REF TO if_wd_context_element.
+*          DATA ls_context TYPE wd_this->element_context.
+*          DATA lv_vis_detail TYPE wd_this->element_context-vis_detail.
+
+*         get element via lead selection
+          lo_el_context = wd_context->get_element( ).
+
+*         @TODO handle not set lead selection
+          IF lo_el_context IS INITIAL.
+          ENDIF.
+
+*         @TODO fill attribute
+         lv_vis_detail = abap_false.
+
+*         set single attribute
+          lo_el_context->set_attribute(
+            name =  `VIS_DETAIL`
+            value = lv_vis_detail ).
+
+
+
+
+    ENDIF.
+
+    ENDIF.
+  ENDIF.
+
+endmethod.
