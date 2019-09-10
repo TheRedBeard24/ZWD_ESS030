@@ -1,0 +1,37 @@
+WORKITEM_ID	Importing	SWR_STRUCT-WORKITEMID
+
+METHOD save_note_del .
+
+  DATA lo_nd_note_del TYPE REF TO if_wd_context_node.
+  DATA lo_el_note_del TYPE REF TO if_wd_context_element.
+  DATA ls_note_del TYPE wd_this->element_note_del.
+  DATA lv_text TYPE wd_this->element_note_del-text.
+  DATA lv_guid TYPE sww_wi2obj-instid.
+
+  lo_nd_note_del = wd_context->get_child_node( name = wd_this->wdctx_note_del ).
+  lo_el_note_del = lo_nd_note_del->get_element( ).
+
+* get single attribute
+  lo_el_note_del->get_attribute(
+    EXPORTING
+      name =  `TEXT`
+    IMPORTING
+      value = lv_text ).
+
+  COMMIT WORK AND WAIT.
+  SELECT SINGLE instid FROM sww_wi2obj INTO lv_guid
+    WHERE top_wi_id = workitem_id
+      AND typeid = 'ZPERINFO'.
+
+  DATA : ls_guidnote TYPE ztb_guidnote.
+  ls_guidnote-guid = lv_guid.
+  ls_guidnote-note = lv_text.
+  ls_guidnote-usnt = sy-uname.
+  ls_guidnote-udat = sy-datum.
+  ls_guidnote-uzet = sy-uzeit.
+  ls_guidnote-cnam = wd_comp_controller->get_cname( ).
+  ls_guidnote-wiid = workitem_id.
+  MODIFY ztb_guidnote FROM ls_guidnote.
+  COMMIT WORK AND WAIT.
+
+ENDMETHOD.
