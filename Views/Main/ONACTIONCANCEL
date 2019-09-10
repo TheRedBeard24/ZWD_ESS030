@@ -1,0 +1,101 @@
+WDEVENT X	CL_WD_CUSTOM_EVENT
+
+METHOD onactioncancel .
+*  DATA lr_node TYPE REF TO if_wd_context_node.
+*
+*  lr_node = wd_context->get_child_node( name = wd_this->wdctx_attachment ).
+*  lr_node->invalidate( ).
+
+*  wd_this->fire_to_main_plg(
+*  ).
+
+DATA  l_message_manager    TYPE REF TO if_wd_message_manager.
+DATA lv_mess TYPE c LENGTH 50.
+  DATA  l_current_controller TYPE REF TO if_wd_controller.
+  l_current_controller ?= wd_this->wd_get_api( ).
+  l_message_manager = l_current_controller->get_message_manager( ).
+lv_mess = 'Leave Request has been cancelled ' .
+*CONCATENATE 'Leave Request has been cancelled ' lx_sww-wi_id INTO lv_mess SEPARATED BY space.
+*  CONCATENATE 'Leave Request Created Under Document ' lx_sww-wi_id INTO lv_mess SEPARATED BY SPACE.
+
+
+
+
+    DATA lo_el_context TYPE REF TO if_wd_context_element.
+    DATA ls_context TYPE wd_this->element_context.
+    DATA lv_vis_detail TYPE wd_this->element_context-vis_detail.
+
+*   get element via lead selection
+    lo_el_context = wd_context->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_context IS INITIAL.
+    ENDIF.
+
+*   @TODO fill attribute
+   lv_vis_detail = abap_false.
+
+*   set single attribute
+    lo_el_context->set_attribute(
+      name =  `VIS_DETAIL`
+      value = lv_vis_detail ).
+
+
+
+
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+  DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* @TODO fill static attributes
+* ls_leave_req = xxx->get_yyy( ).
+
+* set all declared attributes
+  lo_el_leave_req->set_static_attributes(
+     static_attributes = ls_leave_req ).
+me->set_initial( ).
+
+*  l_message_manager->report_message(
+*      EXPORTING
+*        message_text              =  lv_mess
+*        show_as_popup             = 'X'
+*        message_type              = '0'
+*    ).
+
+
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_is_edit TYPE wd_this->element_context-is_edit.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_is_edit = abap_false.
+
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `IS_EDIT`
+    value = lv_is_edit ).
+
+ENDMETHOD.
