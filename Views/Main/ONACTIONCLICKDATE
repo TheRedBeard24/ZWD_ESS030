@@ -1,0 +1,194 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+method ONACTIONCLICKDATE .
+
+
+    DATA lo_el_context TYPE REF TO if_wd_context_element.
+    DATA ls_context TYPE wd_this->element_context.
+    DATA lv_dateinput TYPE wd_this->element_context-dateinput.
+
+*   get element via lead selection
+    lo_el_context = wd_context->get_element( ).
+*   @TODO handle not set lead selection
+    IF lo_el_context IS INITIAL.
+    ENDIF.
+
+*   get single attribute
+    lo_el_context->get_attribute(
+      EXPORTING
+        name =  `DATEINPUT`
+      IMPORTING
+        value = lv_dateinput ).
+
+
+
+  DATA lo_el_contextaf TYPE REF TO if_wd_context_element.
+  DATA ls_contextaf TYPE wd_this->element_context.
+  DATA lv_dateafteraf TYPE wd_this->element_context-dateafter.
+
+* get element via lead selection
+  lo_el_contextaf = wd_context->get_element( ).
+* @TODO handle not set lead selection
+  IF lo_el_contextaf IS INITIAL.
+  ENDIF.
+
+* get single attribute
+  lo_el_contextaf->get_attribute(
+    EXPORTING
+      name =  `DATEAFTER`
+    IMPORTING
+      value = lv_dateafteraf ).
+
+*lv_dateafteraf = PA_ENDDATE.
+*lv_dateinput = pa_startdate.
+
+if lv_dateinput IS NOT INITIAL AND lv_dateafteraf IS NOT INITIAL.
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+  DATA ls_leave_req TYPE wd_this->element_leave_req.
+  DATA lv_begda TYPE wd_this->element_leave_req-begda.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_begda = lv_dateinput.
+
+* set single attribute
+  lo_el_leave_req->set_attribute(
+    name =  `BEGDA`
+    value = lv_begda ).
+
+
+  DATA lo_nd_leave_reqaf TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_reqaf TYPE REF TO if_wd_context_element.
+  DATA ls_leave_reqaf TYPE wd_this->element_leave_req.
+  DATA lv_enddaaf TYPE wd_this->element_leave_req-endda.
+  DATA lv_apprv TYPE wd_this->element_leave_req-apprv.
+  DATA lv_apprv2 TYPE wd_this->element_leave_req-apprv.
+  DATA lv_pernr TYPE wd_this->element_leave_req-pernr.
+
+  lo_nd_leave_reqaf = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+  lo_el_leave_reqaf = lo_nd_leave_req->get_element( ).
+
+
+* @TODO handle not set lead selection
+  IF lo_el_leave_reqaf IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_enddaaf = lv_dateafteraf.
+
+* set single attribute
+  lo_el_leave_reqaf->set_attribute(
+    name =  `ENDDA`
+    value = lv_enddaaf ).
+
+ENDIF.
+
+  lo_el_leave_reqaf->get_attribute(
+   EXPORTING
+    name =  `APPRV`
+   IMPORTING
+    value = lv_apprv ).
+  IF lv_apprv IS INITIAL.
+      lo_el_leave_reqaf->get_attribute(
+   EXPORTING
+    name =  `PERNR`
+   IMPORTING
+    value = lv_pernr ).
+ DATA : lt_pa0001 TYPE TABLE OF p0001,
+        lx_pa0001 TYPE p0001,
+        ls_pa0001 TYPE pa0001.
+
+      CALL FUNCTION 'HR_READ_INFOTYPE'
+        EXPORTING
+*         TCLAS                 = 'A'
+          pernr                 = lv_pernr
+          infty                 = '0001'
+*         BEGDA                 = '18000101'
+*         ENDDA                 = '99991231'
+*         BYPASS_BUFFER         = ' '
+*         LEGACY_MODE           = ' '
+*       IMPORTING
+*         SUBRC                 =
+        TABLES
+          infty_tab             = lt_pa0001
+*       EXCEPTIONS
+*         INFTY_NOT_FOUND       = 1
+*         OTHERS                = 2
+                .
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+
+      SORT lt_pa0001 DESCENDING by endda.
+      READ TABLE lt_pa0001 INTO lx_pa0001 INDEX 1.
+      IF sy-subrc eq 0.
+DATA : stru TYPE TABLE OF QCAT_STRU,
+       xtru TYPE QCAT_STRU.
+        CALL FUNCTION 'RHPH_STRUCTURE_READ'
+          EXPORTING
+            plvar                   = '01'
+            otype                   = 'S'
+            objid                   = lx_pa0001-plans
+            wegid                   = 'A002'
+*           BEGDA                   = SY-DATUM
+*           ENDDA                   = SY-DATUM
+*           PUP_INFO                = 'X'
+*           WITH_STEXT              = 'X'
+*           TDEPTH                  = 0
+          TABLES
+            stru_tab                = stru
+*         EXCEPTIONS
+*           CATALOGUE_PROBLEM       = 1
+*           ROOT_NOT_FOUND          = 2
+*           WEGID_NOT_FOUND         = 3
+*           OTHERS                  = 4
+                  .
+        IF sy-subrc <> 0.
+* Implement suitable error handling here
+        ENDIF.
+      READ TABLE stru INTO xtru INDEX 2.
+      IF sy-subrc eq 0.
+        SELECT SINGLE * FROM pa0001 INTO CORRESPONDING FIELDS OF  lx_pa0001 WHERE plans = xtru-objid AND endda = '99991231'.
+        IF sy-subrc eq 0.
+
+*            lv_apprv = lx_pa0001-pernr.
+            CONCATENATE lx_pa0001-pernr lx_pa0001-ename INTO lv_apprv SEPARATED BY space.
+            lo_el_leave_req->set_attribute(
+              name =  `APPRV`
+              value = lv_apprv ).
+
+* get 2nd approver
+READ TABLE stru INTO xtru INDEX 3.
+          if sy-subrc eq 0.
+        SELECT SINGLE * FROM pa0001 INTO CORRESPONDING FIELDS OF  lx_pa0001 WHERE plans = xtru-objid AND endda = '99991231'.
+        IF sy-subrc eq 0.
+
+            CONCATENATE lx_pa0001-pernr lx_pa0001-ename INTO lv_apprv2  SEPARATED BY space.
+            lo_el_leave_req->set_attribute(
+              name =  `APPRV2`
+              value = lv_apprv2  ).
+
+        ENDIF.
+        ENDIF.
+        ENDIF.
+      ENDIF.
+
+      ENDIF.
+
+  ENDIF.
+
+
+endmethod.
