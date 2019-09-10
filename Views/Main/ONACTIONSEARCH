@@ -1,0 +1,139 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+METHOD onactionsearch .
+
+  DATA lo_nd_input TYPE REF TO if_wd_context_node.
+  DATA lo_el_input TYPE REF TO if_wd_context_element.
+  DATA ls_input TYPE wd_this->element_input.
+  DATA lv_pernr TYPE wd_this->element_input-pernr.
+  DATA : lt_p9000 TYPE TABLE OF p9000,
+        lx_p9000 TYPE p9000,
+        ld_pernr TYPE pernr_d,
+        ld_begda TYPE dats,
+        ld_endda TYPE dats,
+        ld_usrid TYPE p0105-usrid.
+  DATA ls_zthcm_erpskm_att TYPE zthcm_erpskm_att.
+  DATA lv_attachment(50).
+  DATA ld_message   TYPE string.
+  DATA ld_binary_content TYPE xstring.
+
+  DATA lo_componentcontroller TYPE REF TO ig_componentcontroller .
+  DATA lv_return TYPE boolean.
+*  DATA lo_nd_input TYPE REF TO if_wd_context_node.
+*  DATA lo_el_input TYPE REF TO if_wd_context_element.
+*  DATA ls_input TYPE wd_this->element_input.
+*  DATA lv_pernr TYPE wd_this->element_input-pernr.
+  DATA lo_nd_list_mcu TYPE REF TO if_wd_context_node.
+  DATA ls_list_mcu TYPE wd_this->element_list_mcu.
+  DATA lt_list_mcu TYPE wd_this->elements_list_mcu.
+  DATA lo_nd_node_attr TYPE REF TO if_wd_context_node.
+  DATA lo_el_node_attr TYPE REF TO if_wd_context_element.
+  DATA ls_node_attr TYPE wd_this->element_node_attr.
+  DATA lv_visible_admin TYPE wd_this->element_node_attr-visible_admin.
+
+  lo_componentcontroller =   wd_this->get_componentcontroller_ctr( ).
+  lv_return = lo_componentcontroller->check_admin( ).
+
+  lo_nd_input = wd_context->get_child_node( name = wd_this->wdctx_input ).
+  lo_el_input = lo_nd_input->get_element( ).
+
+
+  lo_nd_input = wd_context->get_child_node( name = wd_this->wdctx_input ).
+  lo_el_input = lo_nd_input->get_element( ).
+
+*  get single attribute
+  lo_el_input->get_attribute( EXPORTING name =  `PERNR` IMPORTING value = lv_pernr ).
+
+
+  ld_pernr = '80000009'.
+  ld_begda = '18000101'.
+  ld_endda = '99991231'.
+
+  CALL FUNCTION 'HR_INITIALIZE_BUFFER'.
+  CALL FUNCTION 'HR_READ_INFOTYPE'
+    EXPORTING
+      infty           = '9000'
+      pernr           = lv_pernr
+      begda           = ld_begda
+      endda           = ld_endda
+    TABLES
+      infty_tab       = lt_p9000
+    EXCEPTIONS
+      infty_not_found = 1.
+
+  DATA: lv_index TYPE i,
+        lo_action TYPE REF TO if_wd_action,
+        lo_delegat TYPE REF TO cl_wdr_delegating_view.
+
+  lo_nd_list_mcu = wd_context->get_child_node( name = wd_this->wdctx_list_mcu ).
+  lo_nd_list_mcu->get_static_attributes_table( IMPORTING table = lt_list_mcu ).
+
+  DATA lv_ext(20).
+  refresh lt_list_mcu .
+
+  LOOP AT lt_p9000 INTO lx_p9000.
+    CLEAR ls_list_mcu.
+    MOVE-CORRESPONDING lx_p9000 TO ls_list_mcu.
+*    CLEAR : ls_zthcm_erpskm_att.
+*    SELECT SINGLE * INTO ls_zthcm_erpskm_att FROM zthcm_erpskm_att
+*         WHERE zpernr =  lx_p9000-pernr
+**           AND zinfty =  lx_p0028-infty
+*           AND zsubty =  lx_p9000-subty
+*           AND zobjps =  lx_p9000-objps
+*           AND zbegda = lx_p9000-begda "Add trias - 07.10.2016 Add Begda selection
+*           AND zseqnr = lx_p9000-seqnr
+*           AND zapproved = abap_true.
+*
+*    IF ls_zthcm_erpskm_att-zfladd_attch IS NOT INITIAL.
+**       CONCATENATE 'Attachment' ls_zthcm_erpskm_att-zfiletype_attch INTO lv_attachment SEPARATED BY '.'.
+*      lv_ext = ls_zthcm_erpskm_att-zfiletype_attch.
+*      TRANSLATE lv_ext TO LOWER CASE.
+*      CONCATENATE 'Attachment' lv_ext INTO lv_attachment SEPARATED BY '.'.
+*      ls_list_mcu-filename_attch = ls_zthcm_erpskm_att-zflnam_attch.
+*      ls_list_mcu-purefilename_attch = lv_attachment. "ls_zthcm_erpskm_att-zflnam_attch.
+*      ls_list_mcu-filetype_attch = ls_zthcm_erpskm_att-zfiletype_attch.
+*      OPEN DATASET ls_zthcm_erpskm_att-zfladd_attch FOR INPUT IN BINARY MODE MESSAGE ld_message.
+*      IF sy-subrc = 0.
+*        CLEAR : ld_binary_content.
+*        READ DATASET ls_zthcm_erpskm_att-zfladd_attch INTO ld_binary_content.
+*        IF sy-subrc = 0.
+*          ls_list_mcu-content_attch = ld_binary_content.
+*        ENDIF.
+*        CLOSE DATASET ls_zthcm_erpskm_att-zfladd_attch.
+*      ENDIF.
+*    ENDIF.
+*
+    APPEND ls_list_mcu TO lt_list_mcu.
+  ENDLOOP.
+
+  DATA lo_nd_action TYPE REF TO if_wd_context_node.
+  DATA lo_el_action TYPE REF TO if_wd_context_element.
+  DATA ls_action TYPE wd_this->element_action.
+  DATA lv_id TYPE wd_this->element_action-id.
+
+  lo_nd_action = wd_context->get_child_node( name = wd_this->wdctx_action ).
+  lo_el_action = lo_nd_action->get_element( ).
+  lo_el_action->get_attribute( EXPORTING name =  `ID` IMPORTING value = lv_id ).
+
+  lo_nd_list_mcu = wd_context->get_child_node( name = wd_this->wdctx_list_mcu ).
+  lo_nd_list_mcu->bind_table( new_items = lt_list_mcu set_initial_elements = abap_true ).
+
+  CLEAR lv_id.
+  lo_el_action->set_attribute( EXPORTING name =  `ID` value = lv_id ).
+
+*--------------------------------------------------------------------*
+  DATA lo_nd_header TYPE REF TO if_wd_context_node.
+  DATA lo_el_header TYPE REF TO if_wd_context_element.
+  DATA ls_header TYPE wd_this->element_header.
+*  DATA lv_pernr TYPE wd_this->element_header-pernr.
+
+  lo_nd_header = wd_context->get_child_node( name = wd_this->wdctx_header ).
+  lo_el_header = lo_nd_header->get_element( ).
+
+  lv_pernr = ld_pernr.
+* set single attribute
+  lo_el_header->set_attribute( name =  `PERNR` value = lv_pernr ).
+
+
+
+ENDMETHOD.
