@@ -1,0 +1,92 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+CONTEXT_ELEMENT	IF_WD_CONTEXT_ELEMENT
+ID	STRING
+
+METHOD onactionnew .
+  DATA lo_nd_action TYPE REF TO if_wd_context_node.
+  DATA lo_el_action TYPE REF TO if_wd_context_element.
+  DATA ls_action TYPE wd_this->element_action.
+  DATA lv_readonly TYPE wd_this->element_action-readonly.
+  DATA lv_visible TYPE wd_this->element_action-visible.
+  DATA  l_message_manager    TYPE REF TO if_wd_message_manager.
+  DATA  l_current_controller TYPE REF TO if_wd_controller.
+  DATA lv_hidden_on_display TYPE wd_this->element_action-hidden_on_display.
+  DATA lv_error.
+
+  l_current_controller ?= wd_this->wd_get_api( ).
+  l_message_manager = l_current_controller->get_message_manager( ).
+
+**-Check work item
+*  IF me->check_workitem( message_manager = l_message_manager ) = 'X'.
+*    EXIT.
+*  ENDIF.
+**
+
+  lo_nd_action = wd_context->get_child_node( name = wd_this->wdctx_action ).
+  lo_el_action = lo_nd_action->get_element( ).
+
+  lv_readonly = space.
+
+  lv_hidden_on_display = abap_true.
+  lo_el_action->set_attribute( name =  `HIDDEN_ON_DISPLAY` value = lv_hidden_on_display ).
+
+
+* set single attribute
+  lo_el_action->set_attribute(
+    name =  `READONLY`
+    value = lv_readonly ).
+
+  lv_visible = 'X'.
+
+  lo_el_action->set_attribute(
+    name =  `VISIBLE`
+    value = lv_visible ).
+
+  lo_el_action->set_attribute(
+    name =  `DATEO`
+    value = space ).
+
+  lo_el_action->set_attribute(
+    name =  `ID`
+    value = id ).
+
+  DATA lx_ret22 TYPE bapiret1.
+  DATA lo_nd_header TYPE REF TO if_wd_context_node.
+  DATA lo_el_header TYPE REF TO if_wd_context_element.
+  DATA ls_header TYPE wd_this->element_header.
+  DATA lv_pernr TYPE wd_this->element_header-pernr.
+  DATA ls_p9000 TYPE p9000.
+  DATA ls_leave TYPE ZTHCM_LEAVEREQ.
+
+  lo_nd_header = wd_context->get_child_node( name = wd_this->wdctx_header ).
+  lo_el_header = lo_nd_header->get_element( ).
+* get single attribute
+  lo_el_header->get_attribute( EXPORTING name =  `PERNR` IMPORTING value = lv_pernr ).
+
+  lv_pernr = 00000035.
+
+*  IF lv_pernr IS INITIAL.
+*    lv_error = abap_true.
+*    l_message_manager->report_t100_message(
+*       EXPORTING
+*         msgid = 'AQ'
+*         msgno = '003'
+*         msgty = 'E'
+*         p1    = 'Please input personel number'
+**                 p2    =
+**                 p3    =
+**                 p4    =
+*         view  = 'MAIN'
+*         show_as_popup = 'X' ).
+*    RETURN.
+*  ENDIF.
+*
+*  CHECK lv_error IS INITIAL.
+*
+  ls_leave-pernr = lv_pernr.
+  ls_leave-begda = sy-datum.
+  ls_leave-endda = sy-datum.
+*  wd_this->fire_to_detail_plg( EXPORTING i_leave = ls_leave
+*                                         i_text  = 'Create' ).
+
+ENDMETHOD.
