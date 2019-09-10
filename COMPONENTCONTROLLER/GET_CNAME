@@ -1,0 +1,39 @@
+CNAME	Returning	PAD_CNAME
+
+METHOD get_cname .
+  DATA : lt_p0002 TYPE TABLE OF p0002,
+         lx_p0002 TYPE p0002,
+         ld_pernr TYPE pernr_d,
+         ld_begda TYPE dats,
+         ld_endda TYPE dats,
+         ld_usrid TYPE p0105-usrid.
+  ld_usrid = sy-uname.
+  CALL FUNCTION 'RP_GET_PERNR_FROM_USERID'
+    EXPORTING
+      begda     = sy-datum
+      endda     = sy-datum
+      usrid     = ld_usrid
+      usrty     = '0001'
+    IMPORTING
+      usr_pernr = ld_pernr
+    EXCEPTIONS
+      retcd     = 1
+      OTHERS    = 2.
+
+  ld_begda = '18000101'.
+  ld_endda = '99991231'.
+
+  CALL FUNCTION 'HR_READ_INFOTYPE'
+    EXPORTING
+      infty           = '0002'
+      pernr           = ld_pernr
+      begda           = sy-datum
+      endda           = sy-datum
+    TABLES
+      infty_tab       = lt_p0002
+    EXCEPTIONS
+      infty_not_found = 1.
+  SORT lt_p0002 DESCENDING BY begda.
+  READ TABLE lt_p0002 INTO lx_p0002 INDEX 1.
+  cname = lx_p0002-cname.
+ENDMETHOD.
