@@ -1,0 +1,276 @@
+WDEVENT	CL_WD_CUSTOM_EVENT
+
+method ONACTIONSELECT .
+*    DATA lv_apprv_butt TYPE wd_this->element_context-apprv_butt.
+ DATA lv_visible TYPE wd_this->element_context-visible.
+    DATA lo_nd_table_req TYPE REF TO if_wd_context_node.
+
+    DATA lo_el_table_req TYPE REF TO if_wd_context_element.
+    DATA ls_table_req TYPE wd_this->element_table_req.
+
+*   navigate from <CONTEXT> to <TABLE_REQ> via lead selection
+    lo_nd_table_req = wd_context->get_child_node( name = wd_this->wdctx_table_req ).
+
+*   @TODO handle non existant child
+*   IF lo_nd_table_req IS INITIAL.
+*   ENDIF.
+
+*   get element via lead selection
+    lo_el_table_req = lo_nd_table_req->get_element( ).
+*   alternative access  via index
+*   lo_el_table_req = lo_nd_table_req->get_element( index = 1 ).
+*   @TODO handle not set lead selection
+    IF lo_el_table_req IS INITIAL.
+    ENDIF.
+
+*   get all declared attributes
+    lo_el_table_req->get_static_attributes(
+      IMPORTING
+        static_attributes = ls_table_req ).
+
+  DATA lo_el_context TYPE REF TO if_wd_context_element.
+  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_apprv_butt TYPE wd_this->element_context-apprv_butt.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+  DATA lo_nd_leave_req TYPE REF TO if_wd_context_node.
+
+  DATA lo_el_leave_req TYPE REF TO if_wd_context_element.
+  DATA ls_leave_req TYPE wd_this->element_leave_req.
+
+* navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+  lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+* @TODO handle non existant child
+* IF lo_nd_leave_req IS INITIAL.
+* ENDIF.
+
+* get element via lead selection
+  lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_leave_req IS INITIAL.
+  ENDIF.
+
+* @TODO fill static attributes
+* ls_leave_req = xxx->get_yyy( ).
+MOVE-CORRESPONDING ls_table_req to ls_leave_req.
+
+* set all declared attributes
+  lo_el_leave_req->set_static_attributes(
+     static_attributes = ls_leave_req ).
+
+
+DATA : ls_note TYPE ztb_guidnote.
+  DATA : ld_note TYPE ZDE_NOTE.
+  SELECT SINGLE * FROM ztb_guidnote INTO CORRESPONDING FIELDS OF ls_note
+    WHERE guid = ls_leave_req-guid.
+  IF sy-subrc eq 0.
+    ld_note = ls_note-note.
+  ELSE.
+    CLEAR ld_note.
+  ENDIF.
+
+
+*    DATA lo_el_context TYPE REF TO if_wd_context_element.
+*    DATA ls_context TYPE wd_this->element_context.
+    DATA lv_notes TYPE wd_this->element_context-notes.
+
+*   get element via lead selection
+    lo_el_context = wd_context->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_context IS INITIAL.
+    ENDIF.
+
+*   @TODO fill attribute
+   lv_notes = ld_note.
+
+*   set single attribute
+    lo_el_context->set_attribute(
+      name =  `NOTES`
+      value = lv_notes ).
+
+
+
+
+data: mime_repository type ref to if_mr_api,
+
+url type string value '/SAP/BC/WEBDYNPRO/SAP/Z_ADOBE/TEST.PDF',
+
+content type xstring,
+lt_att TYPE TABLE OF zthcm_erpskm_att,
+lx_att TYPE zthcm_erpskm_att.
+
+SELECT SINGLE * FROM zthcm_erpskm_att INTO CORRESPONDING FIELDS OF lx_att
+  WHERE zguid = ls_leave_req-guid.
+
+*CHECK lx_att-zfladd_attch IS NOT INITIAL.
+if lx_att-zfladd_attch IS NOT INITIAL.
+url = lx_att-zfladd_attch.
+
+*  DATA lo_el_context TYPE REF TO if_wd_context_element.
+*  DATA ls_context TYPE wd_this->element_context.
+  DATA lv_pdf TYPE wd_this->element_context-pdf.
+
+* get element via lead selection
+  lo_el_context = wd_context->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_context IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+DATA :gv_file TYPE xstring,
+      flag.
+CLEAR flag.
+open DATASET lx_att-zfladd_attch FOR INPUT in BINARY MODE.
+IF sy-subrc eq 0.
+read DATASET lx_att-zfladd_attch INTO gv_file.
+ELSE.
+  flag = 'X'.
+ENDIF.
+CLOSE DATASET lx_att-zfladd_attch.
+ lv_pdf = gv_file.
+
+IF flag IS NOT INITIAL.
+ CLEAR lv_pdf.
+ENDIF.
+* set single attribute
+  lo_el_context->set_attribute(
+    name =  `PDF`
+    value = lv_pdf ).
+
+    lo_el_context->set_attribute(
+    name =  `PDFVIS`
+    value = abap_true ).
+*01	None
+*02	Visible
+     lv_visible = '02'.
+    lo_el_context->set_attribute(
+      name =  `VISISBLE2`
+      value = lv_visible ).
+*****************************************************************************
+    DATA lv_filecontent TYPE wd_this->element_attachment-filecontent.
+  DATA : lr_ess_webdynpro TYPE REF TO zcl_ess_webdynpro,
+         lr_node          TYPE REF TO if_wd_context_node,
+         lr_element       TYPE REF TO if_wd_context_element,
+         ld_pure_filename TYPE string.
+
+  DATA lv_file_name TYPE char200.
+  DATA lv_ext TYPE char10.
+  DATA lo_nd_attachment TYPE REF TO if_wd_context_node.
+  DATA lo_el_attachment TYPE REF TO if_wd_context_element.
+  DATA ls_attachment TYPE wd_this->element_attachment.
+
+* navigate from <CONTEXT> to <ATTACHMENT> via lead selection
+  lo_nd_attachment = wd_context->get_child_node( name = wd_this->wdctx_attachment ).
+
+
+* get element via lead selection
+  lo_el_attachment = lo_nd_attachment->get_element( ).
+
+* @TODO handle not set lead selection
+  IF lo_el_attachment IS INITIAL.
+  ENDIF.
+
+* @TODO fill attribute
+ lv_filecontent = gv_file.
+
+* set single attribute
+  lo_el_attachment->set_attribute(
+    name =  `FILECONTENT`
+    value = lv_filecontent ).
+
+  lo_el_attachment->set_attribute(
+    name =  `FILETYPE`
+    value = 'PDF' ).
+**************************************************************************
+     lo_nd_attachment = wd_context->get_child_node( name = wd_this->wdctx_attachment ).
+
+
+*    get element via lead selection
+     lo_el_attachment = lo_nd_attachment->get_element( ).
+
+*    @TODO handle not set lead selection
+     IF lo_el_attachment IS INITIAL.
+     ENDIF.
+
+*    @TODO fill static attributes
+    ls_attachment-filecontent    = gv_file.
+    ls_attachment-filename       = LX_ATT-zflnam_attch.
+    ls_attachment-filetype       = LX_ATT-zfiletype_attch.
+    ls_attachment-pure_filename  = LX_ATT-zflnam_attch.
+
+*    set all declared attributes
+     lo_el_attachment->set_static_attributes(
+        static_attributes = ls_attachment ).
+
+
+DATA : LX_ZTBNOTE TYPE ZTB_GUIDNOTE.
+SELECT SINGLE * FROM ZTB_GUIDNOTE INTO lx_ztbnote WHERE
+  GUID = ls_leave_req-GUID.
+    DATA lv_note TYPE wd_this->element_leave_req-note.
+
+*   navigate from <CONTEXT> to <LEAVE_REQ> via lead selection
+    lo_nd_leave_req = wd_context->get_child_node( name = wd_this->wdctx_leave_req ).
+
+
+*   get element via lead selection
+    lo_el_leave_req = lo_nd_leave_req->get_element( ).
+
+*   @TODO handle not set lead selection
+    IF lo_el_leave_req IS INITIAL.
+    ENDIF.
+
+*   @TODO fill attribute
+   lv_note = lx_ztbnote-note.
+
+*   set single attribute
+    lo_el_leave_req->set_attribute(
+      name =  `NOTE`
+      value = lv_note ).
+*****************************************************************************
+
+ELSE.
+      lo_el_context->set_attribute(
+    name =  `PDFVIS`
+    value = abap_false ).
+ENDIF.
+
+
+
+IF ls_leave_req-status(6) eq 'Delete' or ls_leave_req-status eq 'Mark For Deletion' .
+*   @TODO fill attribute
+   lv_apprv_butt = abap_false.
+
+*   set single attribute
+    lo_el_context->set_attribute(
+      name =  `APPRV_BUTT`
+      value = lv_apprv_butt ).
+
+ELSEIF ls_leave_req-status(8) eq 'Modified' .
+    lv_apprv_butt = abap_true..
+
+*   set single attribute
+    lo_el_context->set_attribute(
+      name =  `APPRV_BUTT`
+      value = lv_apprv_butt ).
+ELSE.
+
+   lv_apprv_butt = abap_true.
+
+*   set single attribute
+    lo_el_context->set_attribute(
+      name =  `APPRV_BUTT`
+      value = lv_apprv_butt ).
+
+ENDIF.
+
+endmethod.
